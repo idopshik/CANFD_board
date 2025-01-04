@@ -21,7 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -55,10 +55,14 @@ DMA_HandleTypeDef hdma_usart1_tx;
 
 /* USER CODE BEGIN PV */
 
+FDCAN_FilterTypeDef sFilterConfig;
+
 FDCAN_TxHeaderTypeDef   TxHeader1;
 FDCAN_RxHeaderTypeDef   RxHeader1;
-uint8_t canRX[8] = {0,0,0,0,0,0,0,0};  //CAN Bus Receive Buffer
+uint8_t canRX[8];  //CAN Bus Receive Buffer
 uint8_t freshCanMsg = 0;
+
+char buffer[10];
 
 
 /* USER CODE END PV */
@@ -76,7 +80,7 @@ static void MX_TIM4_Init(void);
 static void MX_TIM5_Init(void);
 static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
-void CANFD_Set_Filtes(void);
+void CANFD1_Set_Filtes(void);
 
 /* USER CODE END PFP */
 
@@ -137,7 +141,7 @@ int main(void)
   HAL_TIM_OC_Start_IT( &htim4, TIM_CHANNEL_1 );
   HAL_TIM_OC_Start_IT( &htim5, TIM_CHANNEL_1 );
 
-  CANFD_Set_Filtes();
+  CANFD1_Set_Filtes();
   // STart FDCAN1
   if(HAL_FDCAN_Start(&hfdcan1)!= HAL_OK)
   {
@@ -169,15 +173,21 @@ int main(void)
 
 
 	  //sprintf ((char *)TxData1, "FDCAN1TX %d", indx++);
-
+/*
 	  if (HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &TxHeader1, canRX)!= HAL_OK)
 	  {
 	   Error_Handler();
 	  }
-
-	  if (freshCanMsg){
+*/
+	  if (freshCanMsg == 1){
 		  freshCanMsg = 0;
 		  HAL_GPIO_TogglePin (LED_TX1_GPIO_Port, LED_TX1_Pin);
+		  //HAL_UART_Transmit_DMA(&huart1, canRX, 8);
+		  //sprintf(numarray, "%d\n", canRX);
+		  //sprintf(buffer, "%x ", canRX );
+		  HAL_UART_Transmit(&huart1, canRX, 8, 1000);
+		  //char c = '\n';
+		  //HAL_UART_Transmit_IT(&huart1, (uint8_t*)&c, 1);
 	  }
 
 
@@ -715,20 +725,26 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
-void CANFD_Set_Filtes(void){
-	FDCAN_FilterTypeDef sFilterConfig;
+void CANFD1_Set_Filtes(void){
 
 	sFilterConfig.IdType = FDCAN_STANDARD_ID;
 	sFilterConfig.FilterIndex = 0;
 	sFilterConfig.FilterType = FDCAN_FILTER_MASK;
 	sFilterConfig.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;
-	sFilterConfig.FilterID1 = 0xEFF;
-	sFilterConfig.FilterID2 = 0x430;
+	sFilterConfig.FilterID1 = 0x7FF;
+	sFilterConfig.FilterID2 = 0x260;
 	//sFilterConfig.RxBufferIndex = 0;
 	if (HAL_FDCAN_ConfigFilter(&hfdcan1, &sFilterConfig) != HAL_OK)
 	{
 	  /* Filter configuration Error */
 	  Error_Handler();
+	}
+	else{
+
+        uint8_t str[] = "filterOK\n\0";
+        HAL_UART_Transmit(&huart1, str, strlen((char *)str), 30);
+
+
 	}
 }
 
@@ -738,6 +754,7 @@ void CANFD_Set_Filtes(void){
 // FDCAN1 Callback
 void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
 {
+HAL_GPIO_TogglePin (LED_TX2_GPIO_Port, LED_TX2_Pin);
   if((RxFifo0ITs & FDCAN_IT_RX_FIFO0_NEW_MESSAGE) != RESET)
   {
     /* Retreive Rx messages from RX FIFO0 */
