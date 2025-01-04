@@ -49,6 +49,8 @@ extern "C" {
 
 /* USER CODE END EM */
 
+void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
+
 /* Exported functions prototypes ---------------------------------------------*/
 void Error_Handler(void);
 
@@ -57,6 +59,34 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define Button_3_Pin GPIO_PIN_0
+#define Button_3_GPIO_Port GPIOA
+#define Button_2_Pin GPIO_PIN_1
+#define Button_2_GPIO_Port GPIOA
+#define Button_1_Pin GPIO_PIN_2
+#define Button_1_GPIO_Port GPIOA
+#define LED_TX1_Pin GPIO_PIN_3
+#define LED_TX1_GPIO_Port GPIOA
+#define LED_RX1_Pin GPIO_PIN_4
+#define LED_RX1_GPIO_Port GPIOA
+#define LED_TX2_Pin GPIO_PIN_5
+#define LED_TX2_GPIO_Port GPIOA
+#define LED_RX2_Pin GPIO_PIN_6
+#define LED_RX2_GPIO_Port GPIOA
+#define LED_TX3_Pin GPIO_PIN_7
+#define LED_TX3_GPIO_Port GPIOA
+#define LED_RX3_Pin GPIO_PIN_4
+#define LED_RX3_GPIO_Port GPIOC
+#define CAN_RX2_Pin GPIO_PIN_12
+#define CAN_RX2_GPIO_Port GPIOB
+#define CAN_TX2_Pin GPIO_PIN_13
+#define CAN_TX2_GPIO_Port GPIOB
+#define CAN_RX3_Pin GPIO_PIN_8
+#define CAN_RX3_GPIO_Port GPIOA
+#define CAN_RX1_Pin GPIO_PIN_11
+#define CAN_RX1_GPIO_Port GPIOA
+#define CAN_TX1_Pin GPIO_PIN_12
+#define CAN_TX1_GPIO_Port GPIOA
 
 /* USER CODE BEGIN Private defines */
 
