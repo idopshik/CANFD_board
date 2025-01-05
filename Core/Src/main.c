@@ -24,6 +24,8 @@
 #include <stdio.h>
  #include <string.h>
 #include <inttypes.h>
+#include <stdarg.h>
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -97,21 +99,65 @@ int _write ( int file, char *ptr, int len )
   return len;
 }
 
-int __io_putchar(int ch){
-	ITM_SendChar(ch);
-	return ch;
+
+
+
+void PrintArrayLen(uint8_t *data_arr, uint8_t data_length)
+{
+		for (int i=0;i < data_length ;i++) {
+		    //printf("%lf\n",foo[i]);
+		    printf("%#x ", data_arr[i]);
+			}
+		printf("\n");
+}
+  
+void PrintArray(uint8_t *data_arr){
+
+	int debval;
+	debval = (sizeof (data_arr) /sizeof (data_arr[0]));
+		for (int i=0;i < debval ;i++) {
+		    //printf("%lf\n",foo[i]);
+		    printf("%#x ", data_arr[i]);
+			}
+		printf("\n");
 }
 
 
-void PrintArray(uint8_t *data_arr, uint8_t data_length)
+void vprint(const char *fmt, va_list argp)
 {
-    while (data_length--)
+    char string[200];
+    if(0 < vsprintf(string,fmt,argp)) // build string
     {
-        printf("%02x ", *data_arr);
-      // printf("0x%" PRIx8, *data_arr);
-        *data_arr++;
+        HAL_UART_Transmit(&huart1, (uint8_t*)string, strlen(string), 0xffffff); // send message via UART
     }
-    printf("\n");
+}
+
+void my_printf(const char *fmt, ...) // custom printf() function
+{
+    va_list argp;
+    va_start(argp, fmt);
+    vprint(fmt, argp);
+    va_end(argp);
+}
+
+void print_test(void){
+	printf("\r\nRTOS\r\nCharacters: %c %c\r\n", 'a', 65);
+	printf("Decimals: %d %ld\r\n", 1977, 650000L);
+	printf("Preceding with blanks: %10d\r\n", 1977);
+	printf("Preceding with zeros: %010d\r\n", 1977);
+	printf("Some different radices: %d %x %o %#x %#o\r\n", 100, 100, 100, 100, 100);
+	printf("floats: %4.2f %+.0e %E\r\n", 3.1416, 3.1416, 3.1416);
+	printf("Width trick: %*d\r\n", 5, 10);
+	printf("%s\r\n\r\n", "A string");
+
+	my_printf("\r\nRTOS\r\nCharacters: %c %c\r\n", 'a', 65);
+	my_printf("Decimals: %d %ld\r\n", 1977, 650000L);
+	my_printf("Preceding with blanks: %10d\r\n", 1977);
+	my_printf("Preceding with zeros: %010d\r\n", 1977);
+	my_printf("Some different radices: %d %x %o %#x %#o\r\n", 100, 100, 100, 100, 100);
+	my_printf("floats: %4.2f %+.0e %E\r\n", 3.1416, 3.1416, 3.1416);
+	my_printf("Width trick: %*d\r\n", 5, 10);
+	my_printf("%s\r\n\r\n", "A string");
 }
 
 /* USER CODE END 0 */
@@ -203,31 +249,13 @@ int main(void)
 	  HAL_Delay (10);   /* Insert delay 100 ms */
 
 
-	  //sprintf ((char *)TxData1, "FDCAN1TX %d", indx++);
-/*
-	  if (HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &TxHeader1, canRX)!= HAL_OK)
-	  {
-	   Error_Handler();
-	  }
-*/
 	  if (freshCanMsg == 1){
 		  freshCanMsg = 0;
 		  HAL_GPIO_TogglePin (LED_TX1_GPIO_Port, LED_TX1_Pin);
-		  //HAL_UART_Transmit_DMA(&huart1, canRX, 8);
-		  //sprintf(numarray, "%d\n", canRX);
-		  //sprintf(buffer, "%x ", canRX );
 
-		  // Transmit data through UART1
-		  if (HAL_UART_Transmit(&huart1, canRX, sizeof(canRX), 1000) != HAL_OK)
-		  {
-		    // Error handling
-		  }
-		  //char c = '\n';
-		  //HAL_UART_Transmit_IT(&huart1, (uint8_t*)&c, 1);
-
-		 // printf("%d ", (uint8_t) *canRX);
-		  printf("CAN message is:\r\n");
-		  PrintArray(canRX, 8);  // works perfectly. But I doubt all the messages sent. Seems like dropping
+		  //PrintArrayLen(canRX,8);  // works perfectly. 
+		  PrintArrayLen(canRX,sizeof(canRX));  // works perfectly. 
+		  //PrintArray(canRX);  // But why?? 
 	  }
 
 
