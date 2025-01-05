@@ -23,6 +23,7 @@
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
  #include <string.h>
+#include <inttypes.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -87,6 +88,7 @@ void CANFD1_Set_Filtes(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+//this is for printf
 int _write ( int file, char *ptr, int len )
 {
   int i = 0;
@@ -95,6 +97,22 @@ int _write ( int file, char *ptr, int len )
   return len;
 }
 
+int __io_putchar(int ch){
+	ITM_SendChar(ch);
+	return ch;
+}
+
+
+void PrintArray(uint8_t *data_arr, uint8_t data_length)
+{
+    while (data_length--)
+    {
+        printf("%02x ", *data_arr);
+      // printf("0x%" PRIx8, *data_arr);
+        *data_arr++;
+    }
+    printf("\n");
+}
 
 /* USER CODE END 0 */
 
@@ -198,9 +216,18 @@ int main(void)
 		  //HAL_UART_Transmit_DMA(&huart1, canRX, 8);
 		  //sprintf(numarray, "%d\n", canRX);
 		  //sprintf(buffer, "%x ", canRX );
-		  HAL_UART_Transmit(&huart1, canRX, 8, 1000);
+
+		  // Transmit data through UART1
+		  if (HAL_UART_Transmit(&huart1, canRX, sizeof(canRX), 1000) != HAL_OK)
+		  {
+		    // Error handling
+		  }
 		  //char c = '\n';
 		  //HAL_UART_Transmit_IT(&huart1, (uint8_t*)&c, 1);
+
+		 // printf("%d ", (uint8_t) *canRX);
+		  printf("CAN message is:\r\n");
+		  PrintArray(canRX, 8);  // works perfectly. But I doubt all the messages sent. Seems like dropping
 	  }
 
 
