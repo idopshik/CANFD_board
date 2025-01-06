@@ -99,6 +99,11 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
+
+HAL_TIM_Base_Start_IT(&htim2);
+HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_2);
+
   int button1 = 0;
   int button2 = 0;
   int button1_state = 0;
@@ -117,7 +122,7 @@ int main(void)
 
 			  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_3, GPIO_PIN_RESET);
 			  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);
-			  TIM1-> ARR      = 300;
+			  TIM2-> ARR      = 300;
 		  }
 		  if (button1 > 0){
 			  button1 -- ;
@@ -149,7 +154,7 @@ int main(void)
 
 			  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_RESET);
 			  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_RESET);
-			  TIM1-> ARR      = 30;
+			  TIM2-> ARR      = 30;
 		  }
 		  if (button2 > 0){
 			  button2 -- ;
@@ -246,7 +251,7 @@ static void MX_TIM2_Init(void)
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim2.Init.Period = 300;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
   {
     Error_Handler();
