@@ -118,6 +118,28 @@ void PrintArray(uint8_t *data_arr) {
 	printf("\n");
 }
 
+void set_new_speeds(int vFL, int vFR, int vRL, int vRR){
+	/*htim2 vFL, htim3 vFR, htim4 vRL, htim5 vRR*/
+
+if(vRR < 100){
+	vRR = 100;
+}
+if (vFL == 0){
+	TIM5->CR1 &= (~((uint16_t)TIM_CR1_CEN));
+}
+else{
+	TIM5->CR1 |= TIM_CR1_CEN;  // enable
+}
+
+
+	/*TIM1->ARR*/
+	__HAL_TIM_SET_AUTORELOAD( &htim2, vFL );
+	__HAL_TIM_SET_AUTORELOAD( &htim3, vFR );
+	__HAL_TIM_SET_AUTORELOAD( &htim4, vRL );
+	__HAL_TIM_SET_AUTORELOAD( &htim5, vRR );
+
+}
+
 void vprint(const char *fmt, va_list argp) {
 	char string[200];
 	if (0 < vsprintf(string, fmt, argp))  // build string
@@ -270,6 +292,7 @@ int main(void)
 			vRR = (uint8_t)canRX[2] << 8 | (uint8_t)canRX[3];
 
 			my_printf("vFL: %d vFR: %d  vRL: %d  vRR: %d \n",vFL, vFR, vRL, vRR);
+			set_new_speeds(vFL, vFR, vRL, vRR);
 			counter += 1;
 
 			if (ms100Flag > 0){
@@ -493,7 +516,7 @@ static void MX_TIM2_Init(void)
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim2.Init.Period = 10000;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
   {
     Error_Handler();
@@ -539,7 +562,7 @@ static void MX_TIM3_Init(void)
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim3.Init.Period = 10000;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
   {
     Error_Handler();
@@ -598,7 +621,7 @@ static void MX_TIM4_Init(void)
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim4.Init.Period = 10000;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
   {
     Error_Handler();
@@ -656,7 +679,7 @@ static void MX_TIM5_Init(void)
   htim5.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim5.Init.Period = 10000;
   htim5.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim5.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  htim5.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_OC_Init(&htim5) != HAL_OK)
   {
     Error_Handler();
