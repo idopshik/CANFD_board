@@ -160,6 +160,10 @@ void set_new_speeds(int vFL, int vFR, int vRL, int vRR) {
 	calculete_prsc_and_perio(vFL, arr_with_calculations);
 	__HAL_TIM_SET_PRESCALER(&htim2,arr_with_calculations[0]);
 	__HAL_TIM_SET_AUTORELOAD(&htim2, arr_with_calculations[1]);
+		if (TIM2->CNT > TIM2->ARR){
+			TIM2->CNT = TIM2->ARR;
+			HAL_GPIO_TogglePin(LED_RX3_GPIO_Port, LED_RX2_Pin);
+		}
 
 	}
 
@@ -173,7 +177,7 @@ void set_new_speeds(int vFL, int vFR, int vRL, int vRR) {
 	calculete_prsc_and_perio(vFR, arr_with_calculations);
 	__HAL_TIM_SET_PRESCALER(&htim3,arr_with_calculations[0]);
 	__HAL_TIM_SET_AUTORELOAD(&htim3, arr_with_calculations[1]);
-		if (TIM3->CNT > TIM2->ARR){
+		if (TIM3->CNT > TIM3->ARR){
 			TIM3->CNT = TIM3->ARR;
 			HAL_GPIO_TogglePin(LED_RX3_GPIO_Port, LED_RX2_Pin);
 		}
