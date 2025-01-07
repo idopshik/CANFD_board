@@ -138,7 +138,7 @@ HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_2);
 	 	 else
 	 	 {
 	 		if (button1_state == 1 && button1 == confident){
-                int small_val = 25;
+                int small_val = 250;
 	 					  button1_state = 0;
 	 					 HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_RESET);
 	 					  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_SET);
@@ -185,7 +185,7 @@ HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_2);
                           // просто позаботиться, что значение счётчика меньше.
                           // В этой системе с двумя кнопками и двумя значениями
                           // - не требуется. Но только здесь.
-                          TIM2-> ARR      = 300;
+                          TIM2-> ARR      = 700;
                           /* TIM2->CNT = TIM2->ARR; */
                           /* TIM2 -> EGR = TIM_EGR_UG; */
 	 				  }
@@ -211,6 +211,7 @@ HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_2);
 			  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_RESET);
 
 
+              TIM2->CR1  &=~ TIM_CR1_ARPE;
 		  }
 		  if (button3 > 0){
 			  button3 -- ;
@@ -221,16 +222,17 @@ HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_2);
 	 	 else
 	 	 {
 	 		if (button3_state == 1 && button3 == confident){
-                int small_val = 25;
+                /* int small_val = 250; */
 	 					  button3_state = 0;
 	 					 HAL_GPIO_WritePin(GPIOA, GPIO_PIN_3, GPIO_PIN_RESET);
 	 					  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_SET);
 
-                          if (TIM2->CNT > (small_val - 1)){
-                              TIM2 -> EGR = TIM_EGR_UG;
-                                TIM2->CNT = 0;
-                          }
-                          TIM2-> ARR      = small_val;
+                        TIM2->CR1 |= TIM_CR1_ARPE;
+                          /* if (TIM2->CNT > (small_val - 1)){ */
+                              /* TIM2 -> EGR = TIM_EGR_UG; */
+                                /* TIM2->CNT = 0; */
+                          /* } */
+                          /* TIM2-> ARR      = small_val; */
 
 	 				  }
 			  if (button3 < confident){
