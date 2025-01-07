@@ -117,6 +117,10 @@ HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_2);
 
     /* USER CODE BEGIN 3 */
 	  HAL_Delay(1);
+      //Кнопка 1 на плате (самая правая). Записывает меньшее значение. Смотреть
+      //логическим анализатором. Выход таймера 2 на PB3 (Потенцильно не удобно, это
+      //как раз debug-pin для вывода вместо USART
+
 	  if(HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_2))
 	 	 {
 		  if (button1_state == 0 && button1 == 0){
@@ -155,7 +159,7 @@ HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_2);
 
 
 
-
+// Кнопка 2 - пишет "бОльшее" значение в ARR
 	  if(HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_1))
 	 	 {
 		  if (button2_state == 0 && button2 == 0){
@@ -196,6 +200,7 @@ HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_2);
 
 
 
+// Дубль первой. Для того, чтобы параллельно что-то проверить.
 
 	  if(HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_0))
 	 	 {
