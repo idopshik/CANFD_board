@@ -106,8 +106,10 @@ HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_2);
 
   int button1 = 0;
   int button2 = 0;
+  int button3 = 0;
   int button1_state = 0;
   int button2_state = 0;
+  int button3_state = 0;
   int confident = 3;
   while (1)
   {
@@ -120,9 +122,8 @@ HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_2);
 		  if (button1_state == 0 && button1 == 0){
 			  button1_state = 1;
 
-			  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_3, GPIO_PIN_RESET);
-			  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);
-			  TIM2-> ARR      = 300;
+			  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_SET);
+			  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_RESET);
 		  }
 		  if (button1 > 0){
 			  button1 -- ;
@@ -133,9 +134,17 @@ HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_2);
 	 	 else
 	 	 {
 	 		if (button1_state == 1 && button1 == confident){
+                int small_val = 25;
 	 					  button1_state = 0;
-	 					 HAL_GPIO_WritePin(GPIOA, GPIO_PIN_3, GPIO_PIN_SET);
-	 					  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_SET);
+	 					 HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_RESET);
+	 					  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_SET);
+                          if (TIM2->CNT > (small_val - 1)){
+                              TIM2 -> EGR = TIM_EGR_UG;
+                          }
+                          TIM2-> ARR      = small_val;
+                          /* TIM2->CNT = TIM2->ARR; */
+                          /* TIM2_EGR->UG = 1; */
+
 	 				  }
 			  if (button1 < confident){
 				  button1 ++ ;
@@ -152,10 +161,8 @@ HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_2);
 		  if (button2_state == 0 && button2 == 0){
 			  button2_state = 1;
 
-			  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_RESET);
-			  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_RESET);
-			  TIM2-> ARR      = 30;
-              TIM2->CNT = TIM2->ARR;
+			  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+			  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);
 
 
 		  }
@@ -169,8 +176,14 @@ HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_2);
 	 	 {
 	 		if (button2_state == 1 && button2 == confident){
 	 					  button2_state = 0;
-	 					 HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_SET);
-	 					  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_SET);
+	 					 HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+	 					  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_SET);
+                          // просто позаботиться, что значение счётчика меньше.
+                          // В этой системе с двумя кнопками и двумя значениями
+                          // - не требуется. Но только здесь.
+                          TIM2-> ARR      = 300;
+                          /* TIM2->CNT = TIM2->ARR; */
+                          /* TIM2 -> EGR = TIM_EGR_UG; */
 	 				  }
 			  if (button2 < confident){
 				  button2 ++ ;
@@ -180,6 +193,47 @@ HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_2);
 	 	 }
 
 
+
+
+
+
+	  if(HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_0))
+	 	 {
+		  if (button3_state == 0 && button3 == 0){
+			  button3_state = 1;
+
+			  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_3, GPIO_PIN_SET);
+			  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_RESET);
+
+
+		  }
+		  if (button3 > 0){
+			  button3 -- ;
+		  }
+
+
+	 	  }
+	 	 else
+	 	 {
+	 		if (button3_state == 1 && button3 == confident){
+                int small_val = 25;
+	 					  button3_state = 0;
+	 					 HAL_GPIO_WritePin(GPIOA, GPIO_PIN_3, GPIO_PIN_RESET);
+	 					  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_SET);
+
+                          if (TIM2->CNT > (small_val - 1)){
+                              TIM2 -> EGR = TIM_EGR_UG;
+                                TIM2->CNT = 0;
+                          }
+                          TIM2-> ARR      = small_val;
+
+	 				  }
+			  if (button3 < confident){
+				  button3 ++ ;
+			  }
+
+
+	 	 }
 
   }
   /* USER CODE END 3 */
@@ -254,7 +308,7 @@ static void MX_TIM2_Init(void)
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim2.Init.Period = 300;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
   {
     Error_Handler();
@@ -364,7 +418,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_4, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1|GPIO_PIN_6, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_6, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : PA0 PA1 PA2 */
   GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_2;
@@ -388,8 +442,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PB1 PB6 */
-  GPIO_InitStruct.Pin = GPIO_PIN_1|GPIO_PIN_6;
+  /*Configure GPIO pins : PB1 PB2 PB6 */
+  GPIO_InitStruct.Pin = GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_6;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
