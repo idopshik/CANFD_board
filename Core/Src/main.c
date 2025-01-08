@@ -193,39 +193,6 @@ void set_new_speeds(int vFLrpm, int vFR, int vRL, int vRR) {
         printf("\n");
 
         if (vFLrpm > crtn_spds[0]) {
-            if (TIM3->CNT > (arr_with_calculations[2])) {
-
-                TIM3->PSC = arr_with_calculations[1];
-                TIM3->ARR = arr_with_calculations[3];
-                TIM3->EGR = TIM_EGR_UG;
-            }
-            /*
-            В любом случае рассчитываем точку по старому прескалеру.
-            Если точка пройдена (по старому прескалеру) то.
-
-                 - Если есть новое значение пресклера, кладём его в
-                 PSC . Мы всё равно ведь будем вызывать  UG �? оно как
-                 раз применится.
-                 - Кладём ARR (рассчитанный по новому)
-                 - Вызываем UG.
-             */
-            else {
-                /*
-                 Точка ещё не пройдена. В этом случае нельзя вызвать UG. будет
-                 Glitch.
-                 - пишем новый ARR  по старому прескалеру (без буфера)
-                 - если PSC поменялся, то кладём уже по буферу и PSC и ARR.
-                 */
-                TIM3->CR1 |= TIM_CR1_ARPE;  // выключаем буфер для ARR.
-                TIM3->ARR = arr_with_calculations[2];
-                if (arr_with_calculations[0] != arr_with_calculations[1]) {
-                    TIM3->CR1 &= ~TIM_CR1_ARPE;
-                    TIM3->PSC = arr_with_calculations[1];
-                    TIM3->ARR = arr_with_calculations[3];
-
-
-                }
-            }
         } else {
             /*
             меньше. Скорость уменьшается. В этом случае обычно.период
@@ -240,12 +207,13 @@ void set_new_speeds(int vFLrpm, int vFR, int vRL, int vRR) {
 
             TIM3->CR1 |= TIM_CR1_ARPE;
             TIM3->ARR = arr_with_calculations[2];
+            TIM3->PSC = arr_with_calculations[1];
 
             if (arr_with_calculations[0] != arr_with_calculations[1]) {
+
                 TIM3->CR1 &= ~TIM_CR1_ARPE;
-                TIM3->PSC = arr_with_calculations[1];
-                TIM3->ARR = arr_with_calculations[3];
                 HAL_GPIO_TogglePin(LastPin_GPIO_Port, LastPin_Pin);
+                /* TIM3->ARR = arr_with_calculations[3]; */
                 
 
                 my_printf("------------------new prescaler--------------------\n");
