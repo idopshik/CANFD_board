@@ -124,6 +124,7 @@ void PrintArray(uint8_t *data_arr) {
 }
 
 int calculete_prsc_and_perio(int val, float *arr, uint8_t wheelnum) {
+    // Нужно будет отладить.
     float factor = 0.02;
     int period;
     int newpresc = 40000;
