@@ -266,6 +266,24 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
         ms100Flag = 1;
         ms100Flag_2 = 1;
     }
+
+      if(htim->Instance==TIM2)  {
+
+
+
+          //почему разыменование?? - требование к аргументу - __HANDLE__: TIM handle
+          int t_val = __HAL_TIM_GET_COUNTER(&htim2);
+          int v_arr = __HAL_TIM_GET_AUTORELOAD(&htim2);
+
+          my_printf("t2:ctr: %d /n", t_val );
+          my_printf("t2:arr: %d /n", v_arr  );
+      }
+       else if (htim->Instance==TIM3)  {
+       }
+       else if (htim->Instance==TIM4)  {
+       }
+       else if (htim->Instance==TIM5)  {
+       }
 }
 
 /* USER CODE END 0 */
