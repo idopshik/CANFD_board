@@ -75,8 +75,8 @@ char buffer[10];
 char ms100Flag = 0;
 char ms100Flag_2 = 0;
 
-float crtn_pscs[4] = {0, 0, 0, 0 };
-int crtn_spds[4] = {0, 0, 0, 0 };
+float crtn_pscs[] = {0, 0, 0, 0 };
+int crtn_spds[] = {0, 0, 0, 0 };
 
 /* USER CODE END PV */
 
@@ -149,15 +149,19 @@ int calculete_prsc_and_perio(int val, int *arr, int wheelnum) {
     arr[1] = newpresc;
 
     arr[2] = (int)((APB1_CLK / (val * factor * MinutTeethFactor * (crtn_pscs[wheelnum] + 1))) - 1);  // значение регистра ARR
-
+        /* arr[2] = 200; */
     if (arr[0] != arr[1]) {
+
+
         arr[3] = (int)((APB1_CLK / (val * factor * MinutTeethFactor * (newpresc + 1))) - 1);  // значение регистра ARR
+        /* arr[3] = 100; */
         crtn_pscs[wheelnum] = newpresc;
     } else {
         arr[3] = arr[2];
     }
     return 0;
 }
+
 
 void set_new_speeds(int vFLrpm, int vFR, int vRL, int vRR) {
     //__HAL_TIM_SET_PRESCALER(&htim3, val );
@@ -170,7 +174,7 @@ void set_new_speeds(int vFLrpm, int vFR, int vRL, int vRR) {
     /* 2) going down. */
 
     // FL wheel - timer 2.
-    int arr_with_calculations[4];
+    int arr_with_calculations[4] = {300, 300, 300, 300};
 
     if (vFLrpm == 0) {
         TIM2->CR1 &= ~((uint16_t)TIM_CR1_CEN);
@@ -179,9 +183,11 @@ void set_new_speeds(int vFLrpm, int vFR, int vRL, int vRR) {
 
         calculete_prsc_and_perio(vFLrpm, arr_with_calculations, 0);
 
-        for (int i ; i < 4; i++){
-            printf("calc[%d]: %d", i, arr_with_calculations[i]);
+        int i;
+        for (i = 0 ; i < 4; i++){
+            printf("calc[%d]: %d  ", i, arr_with_calculations[i]);
         }
+        printf("\n");
 
         if (vFLrpm > crtn_spds[0]) {
             if (TIM2->CNT > (arr_with_calculations[2])) {
@@ -373,9 +379,12 @@ printf("async debug is on");
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-        HAL_GPIO_TogglePin(LED_RX3_GPIO_Port, LED_RX3_Pin);
-        HAL_Delay(100); // Insert delay 100 ms
-        printf("100ms passed\n");
+
+/* Не забудь потом убрать эту задержку  */
+
+        HAL_Delay(1); // Insert delay 100 ms
+        /* printf("100ms passed\n"); */
+
 
         if (ms100Flag_2 > 0) {
             ms100Flag_2 = 0;
@@ -383,6 +392,7 @@ printf("async debug is on");
             if (realcou > 9) {
                 realcou = 0;
                 my_printf("%d seconds\n", seconds_from_start);
+                HAL_GPIO_TogglePin(LED_RX3_GPIO_Port, LED_TX3_Pin);
                 seconds_from_start++;
             }
         }
@@ -390,6 +400,8 @@ printf("async debug is on");
         if (freshCanMsg == 1) {
             freshCanMsg = 0;
             HAL_GPIO_TogglePin(LED_TX1_GPIO_Port, LED_TX1_Pin);
+
+            HAL_GPIO_TogglePin(LED_TX2_GPIO_Port, LED_RX2_Pin);
 
             /*PrintArrayLen(canRX, sizeof(canRX));  // works
              * perfectly.*/
@@ -405,6 +417,7 @@ printf("async debug is on");
             /*my_printf("vFLrpm: %d vFR: %d  vRL: %d  vRR: %d \n", vFLrpm, vFR, vRL,
              * vRR);*/
             set_new_speeds(vFLrpm, vFR, vRL, vRR);
+            
             counter += 1;
 
             if (ms100Flag > 0) {
@@ -1025,6 +1038,7 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan,
                 HAL_GPIO_TogglePin(LED_TX3_GPIO_Port, LED_TX3_Pin);
                 my_printf("wrongID: %#x \n\r", RxHeader1.Identifier);
             } else {
+
                 freshCanMsg = 1;
             }
         }
