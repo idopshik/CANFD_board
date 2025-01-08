@@ -78,6 +78,8 @@ char ms100Flag_2 = 0;
 float crtn_pscs[] = {0, 0, 0, 0 };
 int crtn_spds[] = {0, 0, 0, 0 };
 
+int going_to_change_prescaler_timer3 = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -181,19 +183,24 @@ void set_new_speeds(int vFLrpm, int vFR, int vRL, int vRR) {
 
     if (vFLrpm == 0) {
         TIM3->CR1 &= ~((uint16_t)TIM_CR1_CEN);
+
     } else {
         TIM3->CR1 |= TIM_CR1_CEN;  // enable
 
         calculete_prsc_and_perio(vFLrpm, arr_with_calculations, 0);
 
         int i;
-        for (i = 0 ; i < 4; i++){
-            printf("calc[%d]: %d  ", i, arr_with_calculations[i]);
-        }
-        printf("\n");
+        /* for (i = 0 ; i < 4; i++){ */
+            /* printf("calc[%d]: %d  ", i, arr_with_calculations[i]); */
+        /* } */
+        /* printf("\n"); */
 
         if (vFLrpm > crtn_spds[0]) {
+            HAL_GPIO_TogglePin(LED_RX2_GPIO_Port, LED_RX2_Pin);
+
         } else {
+
+            HAL_GPIO_TogglePin(LED_TX2_GPIO_Port, LED_TX2_Pin);
             /*
             меньше. Скорость уменьшается. В этом случае обычно.период
             увеличивается. Но - прескалер может
@@ -205,23 +212,30 @@ void set_new_speeds(int vFLrpm, int vFR, int vRL, int vRR) {
                  буфера, рассчитываем новую пару и пишем по буферу!
              */
 
-            TIM3->CR1 |= TIM_CR1_ARPE;
-            TIM3->ARR = arr_with_calculations[2];
-            TIM3->PSC = arr_with_calculations[1];
 
+                TIM3->CR1 |= TIM_CR1_ARPE;
+                /* TIM3->PSC = arr_with_calculations[0]; */
+                TIM3->ARR = arr_with_calculations[2];
             if (arr_with_calculations[0] != arr_with_calculations[1]) {
 
-                TIM3->CR1 &= ~TIM_CR1_ARPE;
-                HAL_GPIO_TogglePin(LastPin_GPIO_Port, LastPin_Pin);
-                /* TIM3->ARR = arr_with_calculations[3]; */
-                
+                going_to_change_prescaler_timer3  = 1;
+               /* TIM3 -> CCMR1 &= ~TIM_CCMR1_OC1M;    // ref manual 1212 and 1273 */
+               TIM3 -> CCMR1 &= ~TIM_CCMR1_OC1M_0;    // ref manual 1212 and 1273
+               TIM3 -> CCMR1 &= ~TIM_CCMR1_OC1M_1;    // ref manual 1212 and 1273
+               TIM3 -> CCMR1 &= ~TIM_CCMR1_OC1M_2;    // ref manual 1212 and 1273
+               TIM3 -> CCMR1 &= ~TIM_CCMR1_OC1M_3;    // ref manual 1212 and 1273
 
-                my_printf("------------------new prescaler--------------------\n");
 
-                for (i = 0 ; i < 4; i++){
-                    my_printf("calc[%d]: %d  ", i, arr_with_calculations[i]);
-                }
-                my_printf("\n");
+
+                /* TIM3->CCER &=~ CC4E_LL_TIM_CC; */
+                TIM3->PSC = arr_with_calculations[1];
+                TIM3->ARR = arr_with_calculations[3];
+                printf("------------------new prescaler--------------------\n");
+
+                /* for (i = 0 ; i < 4; i++){ */
+                    /* my_printf("calc[%d]: %d  ", i, arr_with_calculations[i]); */
+                /* } */
+                /* my_printf("\n"); */
                 
 
             }
@@ -287,6 +301,34 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
         /* my_printf("t2:arr: %d /n", v_arr); */
 
     } else if (htim->Instance == TIM3) {
+
+        if( going_to_change_prescaler_timer3 == 1){
+
+            going_to_change_prescaler_timer3 = 0;
+
+            TIM3->CR1 &=~ TIM_CR1_CEN;
+            TIM3->EGR |= TIM_EGR_UG;
+            /* TIM3->CR1 &=~ UIF; */
+            TIM3->SR = 0;                // Clearing the UIF bit
+            TIM3->CR1 |= TIM_CR1_CEN;
+            printf("gitchfighting\n");
+            HAL_GPIO_TogglePin(LastPin_GPIO_Port, LastPin_Pin);
+
+            /* TIM2 -> CCMR1 |= TIM_CCMR1_OC1M; //set to 1 - toggle again */
+            TIM3 -> CCMR1 |= TIM_CCMR1_OC1M_0;    // ref manual 1274
+            TIM3 -> CCMR1 |= TIM_CCMR1_OC1M_1;     
+
+        }
+
+
+
+      /* reset CEN bit of the TIMx_CR1 (disable counter) */
+    /* write new prescaler value to TIMx_PSC */
+    /* set the UG (Update generation) bit of the TIMx_EGR */
+    /* reset UIF bit of TIMx_SR        (clear IRQ flag) */
+    /* set CEN bit of the TIMx_CR1 (enable counter) */
+
+
     } else if (htim->Instance == TIM4) {
     } else if (htim->Instance == TIM5) {
     }
@@ -369,7 +411,7 @@ printf("async debug is on");
 
 /* Не забудь потом убрать эту задержку  */
 
-        HAL_Delay(1); // Insert delay 100 ms
+        HAL_Delay(0.01); // Insert delay 100 ms
         /* printf("100ms passed\n"); */
 
 
@@ -379,7 +421,7 @@ printf("async debug is on");
             if (realcou > 9) {
                 realcou = 0;
                 my_printf("%d seconds\n", seconds_from_start);
-                HAL_GPIO_TogglePin(LED_RX3_GPIO_Port, LED_TX3_Pin);
+                HAL_GPIO_TogglePin(LED_TX3_GPIO_Port, LED_TX3_Pin);
                 seconds_from_start++;
             }
         }
@@ -388,7 +430,6 @@ printf("async debug is on");
             freshCanMsg = 0;
             HAL_GPIO_TogglePin(LED_TX1_GPIO_Port, LED_TX1_Pin);
 
-            HAL_GPIO_TogglePin(LED_TX2_GPIO_Port, LED_RX2_Pin);
 
             /*PrintArrayLen(canRX, sizeof(canRX));  // works
              * perfectly.*/
@@ -1024,7 +1065,7 @@ static void CANFD1_Set_Filtes(void) {
 // FDCAN1 Callback
 void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan,
                                uint32_t RxFifo0ITs) {
-    HAL_GPIO_TogglePin(LED_TX2_GPIO_Port, LED_TX2_Pin);
+    HAL_GPIO_TogglePin(LED_RX1_GPIO_Port, LED_RX1_Pin);
     if ((RxFifo0ITs & FDCAN_IT_RX_FIFO0_NEW_MESSAGE) != RESET) {
         /* Retreive Rx messages from RX FIFO0 */
         if (HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO0, &RxHeader1, canRX) !=
