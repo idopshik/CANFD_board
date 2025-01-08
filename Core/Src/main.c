@@ -62,6 +62,7 @@ DMA_HandleTypeDef hdma_usart1_tx;
 
 #define CAN_SPECIAL_ID 0x003
 #define APB1_CLK 150000000
+#define MinutTeethFactor 1.6
 
 FDCAN_TxHeaderTypeDef TxHeader1;
 FDCAN_RxHeaderTypeDef RxHeader1;
@@ -74,7 +75,7 @@ char buffer[10];
 char ms100Flag = 0;
 char ms100Flag_2 = 0;
 
-float crtn_pscs[4] = {64, 64, 64, 64 };
+float crtn_pscs[4] = {0, 0, 0, 0 };
 int crtn_spds[4] = {0, 0, 0, 0 };
 
 /* USER CODE END PV */
@@ -123,30 +124,34 @@ void PrintArray(uint8_t *data_arr) {
     printf("\n");
 }
 
-int calculete_prsc_and_perio(int val, float *arr, uint8_t wheelnum) {
+int calculete_prsc_and_perio(int val, int *arr, int wheelnum) {
     // Нужно будет отладить.
 
     float factor = 0.02;
-    int period;
-    int newpresc = 40000;
+
+    int newpresc = 25000;
 
     if (val * factor < 6) {
-        newpresc = 40000;
+        newpresc = 25000;
     } else if (val * factor > 40) {
-        newpresc = 64;
+        newpresc = 40;
     } else {
-        newpresc = 500;
+        newpresc = 312;
     }
 
-    arr[0] = crtn_pscs[wheelnum];
+    if (crtn_pscs[wheelnum] == 0 ){
+        arr[0] =  newpresc;
+        crtn_pscs[wheelnum] = newpresc;
+      }
+    else{
+        arr[0] = crtn_pscs[wheelnum];
+    }
     arr[1] = newpresc;
 
-    arr[2] = (int)((APB1_CLK / (val * factor * (crtn_pscs[wheelnum] + 1))) -
-                   1);  // значение регистра ARR
+    arr[2] = (int)((APB1_CLK / (val * factor * MinutTeethFactor * (crtn_pscs[wheelnum] + 1))) - 1);  // значение регистра ARR
 
     if (arr[0] != arr[1]) {
-        arr[3] = (int)((APB1_CLK / (val * factor * (newpresc + 1))) -
-                       1);  // значение регистра ARR
+        arr[3] = (int)((APB1_CLK / (val * factor * MinutTeethFactor * (newpresc + 1))) - 1);  // значение регистра ARR
         crtn_pscs[wheelnum] = newpresc;
     } else {
         arr[3] = arr[2];
@@ -154,7 +159,7 @@ int calculete_prsc_and_perio(int val, float *arr, uint8_t wheelnum) {
     return 0;
 }
 
-void set_new_speeds(int vFL, int vFR, int vRL, int vRR) {
+void set_new_speeds(int vFLrpm, int vFR, int vRL, int vRR) {
     //__HAL_TIM_SET_PRESCALER(&htim3, val );
     //__HAL_TIM_SET_AUTORELOAD(&htim3, val );
     /* permutations! */
@@ -167,14 +172,18 @@ void set_new_speeds(int vFL, int vFR, int vRL, int vRR) {
     // FL wheel - timer 2.
     int arr_with_calculations[4];
 
-    if (vFL == 0) {
+    if (vFLrpm == 0) {
         TIM2->CR1 &= ~((uint16_t)TIM_CR1_CEN);
     } else {
         TIM2->CR1 |= TIM_CR1_CEN;  // enable
 
-        calculete_prsc_and_perio(vFL, arr_with_calculations, 0);
+        calculete_prsc_and_perio(vFLrpm, arr_with_calculations, 0);
 
-        if (vFL > crtn_spds[0]) {
+        for (int i ; i < 4; i++){
+            printf("calc[%d]: %d", i, calculete_prsc_and_perio[i])
+        }
+
+        if (vFLrpm > crtn_spds[0]) {
             if (TIM2->CNT > (arr_with_calculations[2])) {
                 TIM2->PSC = arr_with_calculations[1];
                 TIM2->ARR = arr_with_calculations[3];
@@ -226,7 +235,7 @@ void set_new_speeds(int vFL, int vFR, int vRL, int vRR) {
                 TIM2->ARR = arr_with_calculations[3];
             }
         }
-        crtn_spds[0] = vFL;
+        crtn_spds[0] = vFLrpm;
     }
 }
 
@@ -384,23 +393,23 @@ int main(void) {
              * perfectly.*/
             // PrintArray(canRX);  // But why??
 
-            int vFL, vFR, vRL, vRR;
+            int vFLrpm, vFR, vRL, vRR;
 
-            vFL = (uint8_t)canRX[0] << 8 | (uint8_t)canRX[1];
+            vFLrpm = (uint8_t)canRX[0] << 8 | (uint8_t)canRX[1];
             vFR = (uint8_t)canRX[2] << 8 | (uint8_t)canRX[3];
             vRL = (uint8_t)canRX[4] << 8 | (uint8_t)canRX[5];
             vRR = (uint8_t)canRX[2] << 8 | (uint8_t)canRX[3];
 
-            /*my_printf("vFL: %d vFR: %d  vRL: %d  vRR: %d \n", vFL, vFR, vRL,
+            /*my_printf("vFLrpm: %d vFR: %d  vRL: %d  vRR: %d \n", vFLrpm, vFR, vRL,
              * vRR);*/
-            set_new_speeds(vFL, vFR, vRL, vRR);
+            set_new_speeds(vFLrpm, vFR, vRL, vRR);
             counter += 1;
 
             if (ms100Flag > 0) {
                 ms100Flag = 0;
                 if (counter > 0) {
                     my_printf("receiving at %d per second\n\r", counter * 10);
-                    my_printf("vFL: %d vFR: %d  vRL: %d  vRR: %d \n", vFL, vFR,
+                    my_printf("vFLrpm: %d vFR: %d  vRL: %d  vRR: %d \n", vFLrpm, vFR,
                               vRL, vRR);
 
                     counter = 0;
