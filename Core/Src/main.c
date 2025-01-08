@@ -74,6 +74,9 @@ char buffer[10];
 char ms100Flag = 0;
 char ms100Flag_2 = 0;
 
+float crtn_pscs[4] = {64, 64, 64, 64 }
+int crtn_spds[4] = {0, 0, 0, 0 }
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -120,31 +123,37 @@ void PrintArray(uint8_t *data_arr) {
     printf("\n");
 }
 
-int calculete_prsc_and_perio(int val, float *arr) {
+int calculete_prsc_and_perio(int val, float *arr, uint8_t wheelnum) {
     float factor = 0.02;
     int period;
-    /* int presc = 64; */
-    int presc = 40000;
+    int newpresc = 40000;
 
-    /*
         if (val * factor < 6 ){
-                presc = 40000;
+                newpresc = 40000;
         }
         else if (val * factor > 40 ){
-                presc = 64;
+                newpresc = 64;
         }
         else{
-                presc = 500;
+                newpresc = 500;
         }
-    */
 
-    int peri = (int)((APB1_CLK / (val * factor * (presc + 1))) -
-                     1);  // значение регистра ARR
+    arr[0] = crtn_pscs[wheelnum];
+    arr[1] = newpresc;
 
-    arr[0] = presc;
-    arr[1] = peri;
+    arr[2] = (int)((APB1_CLK / (val * factor * (crtn_pscs[wheelnum] + 1))) - 1);  // значение регистра ARR
 
+
+    if (arr[0] != arr[1]){
+
+        arr[3] = (int)((APB1_CLK / (val * factor * (newpresc + 1))) - 1);  // значение регистра ARR
+        crtn_pscs[wheelnum] = newpresc; 
+    }
+    else{
+        arr[3] = arr[2];
+    }
     return 0;
+
 }
 
 void set_new_speeds(int vFL, int vFR, int vRL, int vRR) {
@@ -154,13 +163,55 @@ void set_new_speeds(int vFL, int vFR, int vRL, int vRR) {
     float arr_with_calculations[2];
 
     if (vFL == 0) {
-        TIM2->CR1 &= (~((uint16_t)TIM_CR1_CEN));
+        TIM2->CR1 &= ~((uint16_t)TIM_CR1_CEN);
     } else {
         TIM2->CR1 |= TIM_CR1_CEN;  // enable
 
         calculete_prsc_and_perio(vFL, arr_with_calculations);
+
+        if (vFL > crtn_spds[0]){
+            if(TIM2->CNT > (arr_with_calculations[1] )){
+        /*
+        В любом случае рассчитываем точку по старому прескалеру.
+        Если точка пройдена (по старому прескалеру) то.
+             - Если есть новое значение пресклера, кладём его в
+             PSC . Мы всё равно ведь будем вызывать  UG И оно как
+             раз применится. 
+             - Кладём ARR (рассчитанный по новому)
+             - Вызываем UG. 
+         */
+            }
+            else{
+
+                 /* Точка ещё не пройдена. В этом случае нельзя вызвать UG. Иначе бутет  */
+                 /* Glitch.  */
+                 /* - пишем новый ARR  по старому прескалеру (без буфера) */
+                 /* - если PSC поменялся, то кладём уже по буферу и PSC и ARR. */
+     
+                 }
+                 }
+        else{
+            // меньше. Скорость уменьшается. В этом случае обычно.период
+            // увеличивается. Но - прескалер может
+            // увеличиться (переключиться), и тем самым рассчётное значение ARR может быть
+            // значительно меньше, чем текущее.
+            // 1.  Если не меняется  PSC - пишем  ARR без буфер. Это не вызывает
+            //     никакх проблем вообще 
+            //  2.  Изменение  PSC в этом случае пишем по старому прескелеру без
+            //      буфера, рассчитываем новую пару и пишем по буферу!
+        }
+        crtn_spds[0] = vFL;
+    }
+                         
+    /* 1) changing prescaler up or down  */
+    /* 2) the same prescaler */
+    /* ----- */
+    /* 1) going up (speed up) */
+    /* 2) going down. */
+
+                /*
         __HAL_TIM_SET_PRESCALER(&htim2, arr_with_calculations[0]);
-        /* __HAL_TIM_SET_AUTORELOAD(&htim2, arr_with_calculations[1]); */
+        //__HAL_TIM_SET_AUTORELOAD(&htim2, arr_with_calculations[1]);
 
             if (TIM2->CNT > (arr_with_calculations[1] )){
                                       TIM2 -> EGR = TIM_EGR_UG;
@@ -168,8 +219,10 @@ void set_new_speeds(int vFL, int vFR, int vRL, int vRR) {
                 TIM2-> ARR      = arr_with_calculations[1];
             HAL_GPIO_TogglePin(LED_RX3_GPIO_Port, LED_RX2_Pin);
         }
+        */
     
 
+    /*
     // FR wheel - timer 3.
     if (vFR == 0) {
         TIM3->CR1 &= (~((uint16_t)TIM_CR1_CEN));
@@ -178,7 +231,7 @@ void set_new_speeds(int vFL, int vFR, int vRL, int vRR) {
 
         calculete_prsc_and_perio(vFR, arr_with_calculations);
         __HAL_TIM_SET_PRESCALER(&htim3, arr_with_calculations[0]);
-        /* __HAL_TIM_SET_AUTORELOAD(&htim3, arr_with_calculations[1]); */
+      //  __HAL_TIM_SET_AUTORELOAD(&htim3, arr_with_calculations[1]);
         if (TIM3->CNT > (arr_with_calculations[1] )){
                                   TIM3 -> EGR = TIM_EGR_UG;
                               }
@@ -194,7 +247,7 @@ void set_new_speeds(int vFL, int vFR, int vRL, int vRR) {
 
         calculete_prsc_and_perio(vRL, arr_with_calculations);
         __HAL_TIM_SET_PRESCALER(&htim4, arr_with_calculations[0]);
-        /* __HAL_TIM_SET_AUTORELOAD(&htim4, arr_with_calculations[1]); */
+     //   __HAL_TIM_SET_AUTORELOAD(&htim4, arr_with_calculations[1]);
 
         if (TIM4->CNT > (arr_with_calculations[1] )){
                                   TIM4 -> EGR = TIM_EGR_UG;
@@ -210,7 +263,7 @@ void set_new_speeds(int vFL, int vFR, int vRL, int vRR) {
 
         calculete_prsc_and_perio(vRR, arr_with_calculations);
         __HAL_TIM_SET_PRESCALER(&htim5, arr_with_calculations[0]);
-        /* __HAL_TIM_SET_AUTORELOAD(&htim5, arr_with_calculations[1]); */
+        //__HAL_TIM_SET_AUTORELOAD(&htim5, arr_with_calculations[1]);
 
         if (TIM5->CNT > (arr_with_calculations[1] )){
                                   TIM5 -> EGR = TIM_EGR_UG;
@@ -218,8 +271,10 @@ void set_new_speeds(int vFL, int vFR, int vRL, int vRR) {
         TIM5-> ARR      = arr_with_calculations[1];
             HAL_GPIO_TogglePin(LED_RX3_GPIO_Port, LED_RX2_Pin);
     }
-    /*TIM1->ARR*/
+    //TIM1->ARR
+    */
 }
+
 
 void vprint(const char *fmt, va_list argp) {
     char string[200];
