@@ -139,26 +139,29 @@ int calculete_prsc_and_perio(int val, int *arr, int wheelnum) {
         newpresc = 312;
     }
 
+
     if (crtn_pscs[wheelnum] == 0 ){
         arr[0] =  newpresc;
-        crtn_pscs[wheelnum] = newpresc;
       }
     else{
         arr[0] = crtn_pscs[wheelnum];
     }
+
     arr[1] = newpresc;
 
-    arr[2] = (int)((APB1_CLK / (val * factor * MinutTeethFactor * (crtn_pscs[wheelnum] + 1))) - 1);  // значение регистра ARR
+    arr[2] = (int)((APB1_CLK / (val * factor * MinutTeethFactor * (arr[0] + 1))) - 1);  // значение регистра ARR
         /* arr[2] = 200; */
     if (arr[0] != arr[1]) {
 
 
         arr[3] = (int)((APB1_CLK / (val * factor * MinutTeethFactor * (newpresc + 1))) - 1);  // значение регистра ARR
         /* arr[3] = 100; */
-        crtn_pscs[wheelnum] = newpresc;
     } else {
         arr[3] = arr[2];
     }
+
+    crtn_pscs[wheelnum] = newpresc;
+
     return 0;
 }
 
@@ -177,9 +180,9 @@ void set_new_speeds(int vFLrpm, int vFR, int vRL, int vRR) {
     int arr_with_calculations[4] = {300, 300, 300, 300};
 
     if (vFLrpm == 0) {
-        TIM2->CR1 &= ~((uint16_t)TIM_CR1_CEN);
+        TIM3->CR1 &= ~((uint16_t)TIM_CR1_CEN);
     } else {
-        TIM2->CR1 |= TIM_CR1_CEN;  // enable
+        TIM3->CR1 |= TIM_CR1_CEN;  // enable
 
         calculete_prsc_and_perio(vFLrpm, arr_with_calculations, 0);
 
@@ -190,10 +193,11 @@ void set_new_speeds(int vFLrpm, int vFR, int vRL, int vRR) {
         printf("\n");
 
         if (vFLrpm > crtn_spds[0]) {
-            if (TIM2->CNT > (arr_with_calculations[2])) {
-                TIM2->PSC = arr_with_calculations[1];
-                TIM2->ARR = arr_with_calculations[3];
-                TIM2->EGR = TIM_EGR_UG;
+            if (TIM3->CNT > (arr_with_calculations[2])) {
+
+                TIM3->PSC = arr_with_calculations[1];
+                TIM3->ARR = arr_with_calculations[3];
+                TIM3->EGR = TIM_EGR_UG;
             }
             /*
             В любом случае рассчитываем точку по старому прескалеру.
@@ -212,12 +216,14 @@ void set_new_speeds(int vFLrpm, int vFR, int vRL, int vRR) {
                  - пишем новый ARR  по старому прескалеру (без буфера)
                  - если PSC поменялся, то кладём уже по буферу и PSC и ARR.
                  */
-                TIM2->CR1 |= TIM_CR1_ARPE;  // выключаем буфер для ARR.
-                TIM2->ARR = arr_with_calculations[2];
-                if (arr_with_calculations[0] != arr_with_calculations[2]) {
-                    TIM2->CR1 &= ~TIM_CR1_ARPE;
-                    TIM2->PSC = arr_with_calculations[1];
-                    TIM2->ARR = arr_with_calculations[3];
+                TIM3->CR1 |= TIM_CR1_ARPE;  // выключаем буфер для ARR.
+                TIM3->ARR = arr_with_calculations[2];
+                if (arr_with_calculations[0] != arr_with_calculations[1]) {
+                    TIM3->CR1 &= ~TIM_CR1_ARPE;
+                    TIM3->PSC = arr_with_calculations[1];
+                    TIM3->ARR = arr_with_calculations[3];
+
+
                 }
             }
         } else {
@@ -232,13 +238,24 @@ void set_new_speeds(int vFLrpm, int vFR, int vRL, int vRR) {
                  буфера, рассчитываем новую пару и пишем по буферу!
              */
 
-            TIM2->CR1 |= TIM_CR1_ARPE;
-            TIM2->ARR = arr_with_calculations[2];
+            TIM3->CR1 |= TIM_CR1_ARPE;
+            TIM3->ARR = arr_with_calculations[2];
 
-            if (arr_with_calculations[0] != arr_with_calculations[2]) {
-                TIM2->CR1 &= ~TIM_CR1_ARPE;
-                TIM2->PSC = arr_with_calculations[1];
-                TIM2->ARR = arr_with_calculations[3];
+            if (arr_with_calculations[0] != arr_with_calculations[1]) {
+                TIM3->CR1 &= ~TIM_CR1_ARPE;
+                TIM3->PSC = arr_with_calculations[1];
+                TIM3->ARR = arr_with_calculations[3];
+                HAL_GPIO_TogglePin(LastPin_GPIO_Port, LastPin_Pin);
+                
+
+                my_printf("------------------new prescaler--------------------\n");
+
+                for (i = 0 ; i < 4; i++){
+                    my_printf("calc[%d]: %d  ", i, arr_with_calculations[i]);
+                }
+                my_printf("\n");
+                
+
             }
         }
         crtn_spds[0] = vFLrpm;
@@ -293,12 +310,14 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 
     if (htim->Instance == TIM2) {
         // почему разыменование?? - требование к аргументу - __HANDLE__: TIM
+        //
         // handle
         int t_val = __HAL_TIM_GET_COUNTER(&htim2);
         int v_arr = __HAL_TIM_GET_AUTORELOAD(&htim2);
 
-        my_printf("t2:ctr: %d /n", t_val);
-        my_printf("t2:arr: %d /n", v_arr);
+        /* my_printf("t2:ctr: %d /n", t_val); */
+        /* my_printf("t2:arr: %d /n", v_arr); */
+
     } else if (htim->Instance == TIM3) {
     } else if (htim->Instance == TIM4) {
     } else if (htim->Instance == TIM5) {
@@ -945,6 +964,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_GPIOE_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, LED_TX1_Pin|LED_RX1_Pin|LED_TX2_Pin|LED_RX2_Pin
@@ -952,6 +972,9 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LED_RX3_GPIO_Port, LED_RX3_Pin, GPIO_PIN_SET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(LastPin_GPIO_Port, LastPin_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : Button_3_Pin Button_2_Pin Button_1_Pin */
   GPIO_InitStruct.Pin = Button_3_Pin|Button_2_Pin|Button_1_Pin;
@@ -982,6 +1005,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   GPIO_InitStruct.Alternate = GPIO_AF11_FDCAN3;
   HAL_GPIO_Init(CAN_RX3_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : LastPin_Pin */
+  GPIO_InitStruct.Pin = LastPin_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(LastPin_GPIO_Port, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
