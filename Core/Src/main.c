@@ -78,7 +78,10 @@ char ms100Flag_2 = 0;
 float crtn_pscs[] = {0, 0, 0, 0 };
 int crtn_spds[] = {0, 0, 0, 0 };
 
+int going_to_change_prescaler_timer2 = 0;
 int going_to_change_prescaler_timer3 = 0;
+int going_to_change_prescaler_timer4 = 0;
+int going_to_change_prescaler_timer5 = 0;
 
 /* USER CODE END PV */
 
@@ -168,7 +171,7 @@ int calculete_prsc_and_perio(int val, int *arr, int wheelnum) {
 }
 
 
-void set_new_speeds(int vFLrpm, int vFR, int vRL, int vRR) {
+void set_new_speeds(int vFLrpm, int vFRrpm, int vRLrpm, int vRRrpm) {
     //__HAL_TIM_SET_PRESCALER(&htim3, val );
     //__HAL_TIM_SET_AUTORELOAD(&htim3, val );
     /* permutations! */
@@ -181,13 +184,17 @@ void set_new_speeds(int vFLrpm, int vFR, int vRL, int vRR) {
     // FL wheel - timer 2.
     int arr_with_calculations[4] = {300, 300, 300, 300};
 
+
+//////////////////////////////////    TIMER2 -  FL  /////////////////////////
+
+
     if (vFLrpm == 0) {
-        TIM3->CR1 &= ~((uint16_t)TIM_CR1_CEN);
+        TIM2->CR1 &= ~((uint16_t)TIM_CR1_CEN);
 
     } else {
-        TIM3->CR1 |= TIM_CR1_CEN;  // enable
+        TIM2->CR1 |= TIM_CR1_CEN;  // enable
 
-        calculete_prsc_and_perio(vFLrpm, arr_with_calculations, 0);
+        calculete_prsc_and_perio(vFLrpm, arr_with_calculations, 1);
 
         int i;
         /* for (i = 0 ; i < 4; i++){ */
@@ -195,8 +202,151 @@ void set_new_speeds(int vFLrpm, int vFR, int vRL, int vRR) {
         /* } */
         /* printf("\n"); */
 
+
         if (vFLrpm > crtn_spds[0]) {
             HAL_GPIO_TogglePin(LED_RX2_GPIO_Port, LED_RX2_Pin);
+
+
+            if (TIM2->CNT > (arr_with_calculations[2])) {
+                TIM2->PSC = arr_with_calculations[1];
+                TIM2->ARR = arr_with_calculations[3];
+                TIM2->EGR = TIM_EGR_UG;
+            }
+            /*
+            В любом случае рассчитываем точку по старому прескалеру.
+            Если точка пройдена (по старому прескалеру) то.
+
+                 - Если есть новое значение пресклера, кладём его в
+                 PSC . Мы всё равно ведь будем вызывать  UG ?? оно как
+                 раз применится.
+                 - Кладём ARR (рассчитанный по новому)
+                 - Вызываем UG.
+             */
+            else {
+                /*
+                 Точка ещё не пройдена. В этом случае нельзя вызвать UG. будет
+                 Glitch.
+                 - пишем новый ARR  по старому прескалеру (без буфера)
+                 - если PSC поменялся, то кладём уже по буферу и PSC и ARR.
+                 */
+                TIM2->CR1 |= TIM_CR1_ARPE;  // выключаем буфер для ARR.
+                TIM2->ARR = arr_with_calculations[2];
+                if (arr_with_calculations[0] != arr_with_calculations[2]) {
+                    TIM2->CR1 &= ~TIM_CR1_ARPE;
+                    TIM2->PSC = arr_with_calculations[1];
+                    TIM2->ARR = arr_with_calculations[3];
+                }
+            }
+
+
+
+        } else {
+
+            HAL_GPIO_TogglePin(LED_TX2_GPIO_Port, LED_TX2_Pin);
+            /*
+            меньше. Скорость уменьшается. В этом случае обычно.период
+            увеличивается. Но - прескалер может
+            увеличиться (переключиться), и тем самым рассчётное значение ARR
+            может быть значительно меньше, чем текущее.
+            1.  Если не меняется  PSC - пишем  ARR без буфер. Это не вызывает
+                никакх проблем вообще
+            2.  �?зменение  PSC в этом случае пишем по старому прескелеру без
+                 буфера, рассчитываем новую пару и пишем по буферу!
+             */
+
+
+                TIM2->CR1 |= TIM_CR1_ARPE;
+                /* TIM2->PSC = arr_with_calculations[0]; */
+                TIM2->ARR = arr_with_calculations[2];
+            if (arr_with_calculations[0] != arr_with_calculations[1]) {
+
+                going_to_change_prescaler_timer2  = 1;
+               /* TIM2 -> CCMR1 &= ~TIM_CCMR1_OC1M;    // ref manual 1212 and 1273 */
+               TIM2 -> CCMR1 &= ~TIM_CCMR1_OC1M_0;    // ref manual 1212 and 1273
+               TIM2 -> CCMR1 &= ~TIM_CCMR1_OC1M_1;    // ref manual 1212 and 1273
+               TIM2 -> CCMR1 &= ~TIM_CCMR1_OC1M_2;    // ref manual 1212 and 1273
+               TIM2 -> CCMR1 &= ~TIM_CCMR1_OC1M_3;    // ref manual 1212 and 1273
+
+
+
+                /* TIM2->CCER &=~ CC4E_LL_TIM_CC; */
+                TIM2->PSC = arr_with_calculations[1];
+                TIM2->ARR = arr_with_calculations[3];
+                printf("------------------new prescaler--------------------\n");
+
+                /* for (i = 0 ; i < 4; i++){ */
+                    /* my_printf("calc[%d]: %d  ", i, arr_with_calculations[i]); */
+                /* } */
+                /* my_printf("\n"); */
+                
+
+            }
+        }
+        crtn_spds[0] = vFLrpm;
+    }
+
+
+
+
+
+//////////////////////////////////    TIMER3 -  FR  /////////////////////////
+
+
+
+
+
+
+    if (vFRrpm == 0) {
+        TIM3->CR1 &= ~((uint16_t)TIM_CR1_CEN);
+
+    } else {
+        TIM3->CR1 |= TIM_CR1_CEN;  // enable
+
+        calculete_prsc_and_perio(vFRrpm, arr_with_calculations, 1);
+
+        int i;
+        /* for (i = 0 ; i < 4; i++){ */
+            /* printf("calc[%d]: %d  ", i, arr_with_calculations[i]); */
+        /* } */
+        /* printf("\n"); */
+
+
+        if (vFRrpm > crtn_spds[1]) {
+            HAL_GPIO_TogglePin(LED_RX2_GPIO_Port, LED_RX2_Pin);
+
+
+            if (TIM3->CNT > (arr_with_calculations[2])) {
+                TIM3->PSC = arr_with_calculations[1];
+                TIM3->ARR = arr_with_calculations[3];
+                TIM3->EGR = TIM_EGR_UG;
+            }
+            /*
+            В любом случае рассчитываем точку по старому прескалеру.
+            Если точка пройдена (по старому прескалеру) то.
+
+                 - Если есть новое значение пресклера, кладём его в
+                 PSC . Мы всё равно ведь будем вызывать  UG ?? оно как
+                 раз применится.
+                 - Кладём ARR (рассчитанный по новому)
+                 - Вызываем UG.
+             */
+            else {
+                /*
+                 Точка ещё не пройдена. В этом случае нельзя вызвать UG. будет
+                 Glitch.
+                 - пишем новый ARR  по старому прескалеру (без буфера)
+                 - если PSC поменялся, то кладём уже по буферу и PSC и ARR.
+                 */
+                TIM3->CR1 |= TIM_CR1_ARPE;  // выключаем буфер для ARR.
+                TIM3->ARR = arr_with_calculations[2];
+                if (arr_with_calculations[0] != arr_with_calculations[2]) {
+                    TIM3->CR1 &= ~TIM_CR1_ARPE;
+                    TIM3->PSC = arr_with_calculations[1];
+                    TIM3->ARR = arr_with_calculations[3];
+                }
+            }
+
+
 
         } else {
 
@@ -240,8 +390,230 @@ void set_new_speeds(int vFLrpm, int vFR, int vRL, int vRR) {
 
             }
         }
-        crtn_spds[0] = vFLrpm;
+        crtn_spds[1] = vFRrpm;
     }
+
+
+
+
+//////////////////////////////////    TIMER4 -  RL  /////////////////////////
+
+
+
+
+
+
+    if (vRLrpm == 0) {
+        TIM4->CR1 &= ~((uint16_t)TIM_CR1_CEN);
+
+    } else {
+        TIM4->CR1 |= TIM_CR1_CEN;  // enable
+
+        calculete_prsc_and_perio(vRLrpm, arr_with_calculations, 1);
+
+        int i;
+        /* for (i = 0 ; i < 4; i++){ */
+            /* printf("calc[%d]: %d  ", i, arr_with_calculations[i]); */
+        /* } */
+        /* printf("\n"); */
+
+
+        if (vRLrpm > crtn_spds[2]) {
+            HAL_GPIO_TogglePin(LED_RX2_GPIO_Port, LED_RX2_Pin);
+
+
+            if (TIM4->CNT > (arr_with_calculations[2])) {
+                TIM4->PSC = arr_with_calculations[1];
+                TIM4->ARR = arr_with_calculations[3];
+                TIM4->EGR = TIM_EGR_UG;
+            }
+            /*
+            В любом случае рассчитываем точку по старому прескалеру.
+            Если точка пройдена (по старому прескалеру) то.
+
+                 - Если есть новое значение пресклера, кладём его в
+                 PSC . Мы всё равно ведь будем вызывать  UG ?? оно как
+                 раз применится.
+                 - Кладём ARR (рассчитанный по новому)
+                 - Вызываем UG.
+             */
+            else {
+                /*
+                 Точка ещё не пройдена. В этом случае нельзя вызвать UG. будет
+                 Glitch.
+                 - пишем новый ARR  по старому прескалеру (без буфера)
+                 - если PSC поменялся, то кладём уже по буферу и PSC и ARR.
+                 */
+                TIM4->CR1 |= TIM_CR1_ARPE;  // выключаем буфер для ARR.
+                TIM4->ARR = arr_with_calculations[2];
+                if (arr_with_calculations[0] != arr_with_calculations[2]) {
+                    TIM4->CR1 &= ~TIM_CR1_ARPE;
+                    TIM4->PSC = arr_with_calculations[1];
+                    TIM4->ARR = arr_with_calculations[3];
+                }
+            }
+
+
+
+        } else {
+
+            HAL_GPIO_TogglePin(LED_TX2_GPIO_Port, LED_TX2_Pin);
+            /*
+            меньше. Скорость уменьшается. В этом случае обычно.период
+            увеличивается. Но - прескалер может
+            увеличиться (переключиться), и тем самым рассчётное значение ARR
+            может быть значительно меньше, чем текущее.
+            1.  Если не меняется  PSC - пишем  ARR без буфер. Это не вызывает
+                никакх проблем вообще
+            2.  �?зменение  PSC в этом случае пишем по старому прескелеру без
+                 буфера, рассчитываем новую пару и пишем по буферу!
+             */
+
+
+                TIM4->CR1 |= TIM_CR1_ARPE;
+                /* TIM4->PSC = arr_with_calculations[0]; */
+                TIM4->ARR = arr_with_calculations[2];
+            if (arr_with_calculations[0] != arr_with_calculations[1]) {
+
+                going_to_change_prescaler_timer4  = 1;
+               /* TIM4 -> CCMR1 &= ~TIM_CCMR1_OC1M;    // ref manual 1212 and 1273 */
+               TIM4 -> CCMR1 &= ~TIM_CCMR1_OC1M_0;    // ref manual 1212 and 1273
+               TIM4 -> CCMR1 &= ~TIM_CCMR1_OC1M_1;    // ref manual 1212 and 1273
+               TIM4 -> CCMR1 &= ~TIM_CCMR1_OC1M_2;    // ref manual 1212 and 1273
+               TIM4 -> CCMR1 &= ~TIM_CCMR1_OC1M_3;    // ref manual 1212 and 1273
+
+
+
+                /* TIM4->CCER &=~ CC4E_LL_TIM_CC; */
+                TIM4->PSC = arr_with_calculations[1];
+                TIM4->ARR = arr_with_calculations[3];
+                printf("------------------new prescaler--------------------\n");
+
+                /* for (i = 0 ; i < 4; i++){ */
+                    /* my_printf("calc[%d]: %d  ", i, arr_with_calculations[i]); */
+                /* } */
+                /* my_printf("\n"); */
+                
+
+            }
+        }
+        crtn_spds[2] = vRLrpm;
+    }
+
+
+
+
+
+//////////////////////////////////    TIMER5 -  RR  /////////////////////////
+
+
+
+
+
+
+    if (vRRrpm == 0) {
+        TIM5->CR1 &= ~((uint16_t)TIM_CR1_CEN);
+
+    } else {
+        TIM5->CR1 |= TIM_CR1_CEN;  // enable
+
+        calculete_prsc_and_perio(vRRrpm, arr_with_calculations, 1);
+
+        int i;
+        /* for (i = 0 ; i < 4; i++){ */
+            /* printf("calc[%d]: %d  ", i, arr_with_calculations[i]); */
+        /* } */
+        /* printf("\n"); */
+
+
+        if (vRRrpm > crtn_spds[3]) {
+            HAL_GPIO_TogglePin(LED_RX2_GPIO_Port, LED_RX2_Pin);
+
+
+            if (TIM5->CNT > (arr_with_calculations[2])) {
+                TIM5->PSC = arr_with_calculations[1];
+                TIM5->ARR = arr_with_calculations[3];
+                TIM5->EGR = TIM_EGR_UG;
+            }
+            /*
+            В любом случае рассчитываем точку по старому прескалеру.
+            Если точка пройдена (по старому прескалеру) то.
+
+                 - Если есть новое значение пресклера, кладём его в
+                 PSC . Мы всё равно ведь будем вызывать  UG ?? оно как
+                 раз применится.
+                 - Кладём ARR (рассчитанный по новому)
+                 - Вызываем UG.
+             */
+            else {
+                /*
+                 Точка ещё не пройдена. В этом случае нельзя вызвать UG. будет
+                 Glitch.
+                 - пишем новый ARR  по старому прескалеру (без буфера)
+                 - если PSC поменялся, то кладём уже по буферу и PSC и ARR.
+                 */
+                TIM5->CR1 |= TIM_CR1_ARPE;  // выключаем буфер для ARR.
+                TIM5->ARR = arr_with_calculations[2];
+                if (arr_with_calculations[0] != arr_with_calculations[2]) {
+                    TIM5->CR1 &= ~TIM_CR1_ARPE;
+                    TIM5->PSC = arr_with_calculations[1];
+                    TIM5->ARR = arr_with_calculations[3];
+                }
+            }
+
+
+
+        } else {
+
+            HAL_GPIO_TogglePin(LED_TX2_GPIO_Port, LED_TX2_Pin);
+            /*
+            меньше. Скорость уменьшается. В этом случае обычно.период
+            увеличивается. Но - прескалер может
+            увеличиться (переключиться), и тем самым рассчётное значение ARR
+            может быть значительно меньше, чем текущее.
+            1.  Если не меняется  PSC - пишем  ARR без буфер. Это не вызывает
+                никакх проблем вообще
+            2.  �?зменение  PSC в этом случае пишем по старому прескелеру без
+                 буфера, рассчитываем новую пару и пишем по буферу!
+             */
+
+
+                TIM5->CR1 |= TIM_CR1_ARPE;
+                /* TIM5->PSC = arr_with_calculations[0]; */
+                TIM5->ARR = arr_with_calculations[2];
+            if (arr_with_calculations[0] != arr_with_calculations[1]) {
+
+                going_to_change_prescaler_timer5  = 1;
+               /* TIM5 -> CCMR1 &= ~TIM_CCMR1_OC1M;    // ref manual 1212 and 1273 */
+               TIM5 -> CCMR1 &= ~TIM_CCMR1_OC1M_0;    // ref manual 1212 and 1273
+               TIM5 -> CCMR1 &= ~TIM_CCMR1_OC1M_1;    // ref manual 1212 and 1273
+               TIM5 -> CCMR1 &= ~TIM_CCMR1_OC1M_2;    // ref manual 1212 and 1273
+               TIM5 -> CCMR1 &= ~TIM_CCMR1_OC1M_3;    // ref manual 1212 and 1273
+
+
+
+                /* TIM5->CCER &=~ CC4E_LL_TIM_CC; */
+                TIM5->PSC = arr_with_calculations[1];
+                TIM5->ARR = arr_with_calculations[3];
+                printf("------------------new prescaler--------------------\n");
+
+                /* for (i = 0 ; i < 4; i++){ */
+                    /* my_printf("calc[%d]: %d  ", i, arr_with_calculations[i]); */
+                /* } */
+                /* my_printf("\n"); */
+                
+
+            }
+        }
+        crtn_spds[3] = vRRrpm;
+    }
+
+
+
+
+
+
+
 }
 
 void vprint(const char *fmt, va_list argp) {
@@ -294,17 +666,41 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
         // почему разыменование?? - требование к аргументу - __HANDLE__: TIM
         //
         // handle
-        int t_val = __HAL_TIM_GET_COUNTER(&htim2);
-        int v_arr = __HAL_TIM_GET_AUTORELOAD(&htim2);
+        /* int t_val = __HAL_TIM_GET_COUNTER(&htim2); */
+        /* int v_arr = __HAL_TIM_GET_AUTORELOAD(&htim2); */
 
         /* my_printf("t2:ctr: %d /n", t_val); */
         /* my_printf("t2:arr: %d /n", v_arr); */
+
+
+        if( going_to_change_prescaler_timer2 == 1){
+
+            going_to_change_prescaler_timer2 = 0;
+
+            TIM2 -> CCMR1 |= TIM_CCMR1_OC1M_0;    // ref manual 1274
+            TIM2 -> CCMR1 |= TIM_CCMR1_OC1M_1;     
+
+            TIM2->CR1 &=~ TIM_CR1_CEN;
+            TIM2->EGR |= TIM_EGR_UG;
+            /* TIM2->CR1 &=~ UIF; */
+            TIM2->SR = 0;                // Clearing the UIF bit
+            TIM2->CR1 |= TIM_CR1_CEN;
+            printf("gitchfighting\n");
+            HAL_GPIO_TogglePin(LastPin_GPIO_Port, LastPin_Pin);
+
+            /* TIM2 -> CCMR1 |= TIM_CCMR1_OC1M; //set to 1 - toggle again */
+        }
+
+
+
 
     } else if (htim->Instance == TIM3) {
 
         if( going_to_change_prescaler_timer3 == 1){
 
             going_to_change_prescaler_timer3 = 0;
+            TIM3 -> CCMR1 |= TIM_CCMR1_OC1M_0;    // ref manual 1274
+            TIM3 -> CCMR1 |= TIM_CCMR1_OC1M_1;     
 
             TIM3->CR1 &=~ TIM_CR1_CEN;
             TIM3->EGR |= TIM_EGR_UG;
@@ -315,8 +711,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
             HAL_GPIO_TogglePin(LastPin_GPIO_Port, LastPin_Pin);
 
             /* TIM2 -> CCMR1 |= TIM_CCMR1_OC1M; //set to 1 - toggle again */
-            TIM3 -> CCMR1 |= TIM_CCMR1_OC1M_0;    // ref manual 1274
-            TIM3 -> CCMR1 |= TIM_CCMR1_OC1M_1;     
 
         }
 
@@ -330,8 +724,47 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 
 
     } else if (htim->Instance == TIM4) {
+
+
+        if( going_to_change_prescaler_timer4 == 1){
+
+            going_to_change_prescaler_timer4 = 0;
+
+            TIM4 -> CCMR1 |= TIM_CCMR1_OC1M_0;    // ref manual 1274
+            TIM4 -> CCMR1 |= TIM_CCMR1_OC1M_1;     
+            TIM4->CR1 &=~ TIM_CR1_CEN;
+            TIM4->EGR |= TIM_EGR_UG;
+            /* TIM4->CR1 &=~ UIF; */
+            TIM4->SR = 0;                // Clearing the UIF bit
+            TIM4->CR1 |= TIM_CR1_CEN;
+            printf("gitchfighting\n");
+            HAL_GPIO_TogglePin(LastPin_GPIO_Port, LastPin_Pin);
+
+            /* TIM2 -> CCMR1 |= TIM_CCMR1_OC1M; //set to 1 - toggle again */
+        }
+
+
     } else if (htim->Instance == TIM5) {
+
+
+        if( going_to_change_prescaler_timer5 == 1){
+
+            going_to_change_prescaler_timer5 = 0;
+
+            TIM5 -> CCMR1 |= TIM_CCMR1_OC1M_0;    // ref manual 1274
+            TIM5 -> CCMR1 |= TIM_CCMR1_OC1M_1;     
+            TIM5->CR1 &=~ TIM_CR1_CEN;
+            TIM5->EGR |= TIM_EGR_UG;
+            /* TIM5->CR1 &=~ UIF; */
+            TIM5->SR = 0;                // Clearing the UIF bit
+            TIM5->CR1 |= TIM_CR1_CEN;
+            printf("gitchfighting\n");
+            HAL_GPIO_TogglePin(LastPin_GPIO_Port, LastPin_Pin);
+
+            /* TIM2 -> CCMR1 |= TIM_CCMR1_OC1M; //set to 1 - toggle again */
+
     }
+}
 }
 
 /* USER CODE END 0 */
@@ -435,16 +868,16 @@ printf("async debug is on");
              * perfectly.*/
             // PrintArray(canRX);  // But why??
 
-            int vFLrpm, vFR, vRL, vRR;
+            int vFLrpm, vFRrpm, vRLrpm, vRRrpm;
 
             vFLrpm = (uint8_t)canRX[0] << 8 | (uint8_t)canRX[1];
-            vFR = (uint8_t)canRX[2] << 8 | (uint8_t)canRX[3];
-            vRL = (uint8_t)canRX[4] << 8 | (uint8_t)canRX[5];
-            vRR = (uint8_t)canRX[2] << 8 | (uint8_t)canRX[3];
+            vFRrpm = (uint8_t)canRX[2] << 8 | (uint8_t)canRX[3];
+            vRLrpm = (uint8_t)canRX[4] << 8 | (uint8_t)canRX[5];
+            vRRrpm = (uint8_t)canRX[2] << 8 | (uint8_t)canRX[3];
 
-            /*my_printf("vFLrpm: %d vFR: %d  vRL: %d  vRR: %d \n", vFLrpm, vFR, vRL,
-             * vRR);*/
-            set_new_speeds(vFLrpm, vFR, vRL, vRR);
+            /*my_printf("vFLrpm: %d vFRrpm: %d  vRLrpm: %d  vRRrpm: %d \n", vFLrpm, vFRrpm, vRLrpm,
+             * vRRrpm);*/
+            set_new_speeds(vFLrpm, vFRrpm, vRLrpm, vRRrpm);
             
             counter += 1;
 
@@ -452,8 +885,8 @@ printf("async debug is on");
                 ms100Flag = 0;
                 if (counter > 0) {
                     my_printf("receiving at %d per second\n\r", counter * 10);
-                    my_printf("vFLrpm: %d vFR: %d  vRL: %d  vRR: %d \n", vFLrpm, vFR,
-                              vRL, vRR);
+                    my_printf("vFLrpm: %d vFRrpm: %d  vRLrpm: %d  vRRrpm: %d \n", vFLrpm, vFRrpm,
+                              vRLrpm, vRRrpm);
 
                     counter = 0;
                 }
@@ -656,6 +1089,7 @@ static void MX_TIM2_Init(void)
 
   TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
 
   /* USER CODE BEGIN TIM2_Init 1 */
 
@@ -675,15 +1109,28 @@ static void MX_TIM2_Init(void)
   {
     Error_Handler();
   }
+  if (HAL_TIM_OC_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
   sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
   {
     Error_Handler();
   }
+  sConfigOC.OCMode = TIM_OCMODE_TOGGLE;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_OC_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
   /* USER CODE BEGIN TIM2_Init 2 */
 
   /* USER CODE END TIM2_Init 2 */
+  HAL_TIM_MspPostInit(&htim2);
 
 }
 
