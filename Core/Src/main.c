@@ -59,6 +59,22 @@ static void MX_TIM2_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+void vprint(const char *fmt, va_list argp) {
+    char string[200];
+    if (0 < vsprintf(string, fmt, argp))  // build string
+    {
+        HAL_UART_Transmit(&huart1, (uint8_t *)string, strlen(string),
+                          0xffffff);  // send message via UART
+    }
+}
+
+void my_printf(const char *fmt, ...)  // custom printf() function
+{
+    va_list argp;
+    va_start(argp, fmt);
+    vprint(fmt, argp);
+    va_end(argp);
+}
 
 /* USER CODE END 0 */
 
@@ -211,7 +227,8 @@ HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_2);
 			  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_RESET);
 
 
-              TIM2->CR1  &=~ TIM_CR1_ARPE;
+              /* TIM2->CR1  &=~ TIM_CR1_ARPE; */
+              TIM2->PSC = 64;
 		  }
 		  if (button3 > 0){
 			  button3 -- ;
@@ -227,7 +244,8 @@ HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_2);
 	 					 HAL_GPIO_WritePin(GPIOA, GPIO_PIN_3, GPIO_PIN_RESET);
 	 					  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_SET);
 
-                        TIM2->CR1 |= TIM_CR1_ARPE;
+                        /* TIM2->CR1 |= TIM_CR1_ARPE; */
+                          TIM2->PSC = 640;
                           /* if (TIM2->CNT > (small_val - 1)){ */
                               /* TIM2 -> EGR = TIM_EGR_UG; */
                                 /* TIM2->CNT = 0; */
