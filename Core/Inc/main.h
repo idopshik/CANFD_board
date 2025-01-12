@@ -87,6 +87,8 @@ void Error_Handler(void);
 #define CAN_RX1_GPIO_Port GPIOA
 #define CAN_TX1_Pin GPIO_PIN_12
 #define CAN_TX1_GPIO_Port GPIOA
+#define TIM2_OUT_Pin GPIO_PIN_4
+#define TIM2_OUT_GPIO_Port GPIOB
 #define Pre_pre_Pin GPIO_PIN_7
 #define Pre_pre_GPIO_Port GPIOB
 #define PreLast_Pin GPIO_PIN_9
