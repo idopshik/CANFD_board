@@ -79,11 +79,9 @@ char ms100Flag = 0;
 char ms100Flag_2 = 0;
 
 int crtn_pscs[] = {0, 0, 0, 0 };
-int specialFLAG = 0;
-float crtn_spds[] = {0, 0, 0, 0 };
 
-volatile int  do_int_in_while;
-volatile int going_to_change_prescaler_timer2 = 0;
+volatile uint8_t  do_int_in_while = 0;
+volatile uint8_t g_psc_change_flag = 0;
 int going_to_change_prescaler_timer3 = 0;
 int going_to_change_prescaler_timer4 = 0;
 int going_to_change_prescaler_timer5 = 0;
@@ -94,6 +92,16 @@ uint32_t ARR_old;
 int lastval[] = {0,0,0,0};
 
 int flag_to_check;
+
+
+//
+typedef struct {
+    int prev_speed;
+    int cur_psc;
+    int initial_tmp_flag;
+    uint8_t psc_change_flag;
+} whl_chnl;
+
 
 /* USER CODE END PV */
 
@@ -141,7 +149,7 @@ void PrintArray(uint8_t *data_arr) {
     printf("\n");
 }
 
-int calculete_prsc_and_perio(int val, int *arr, int wheelnum) {
+int calculete_prsc_and_perio(int val, int *arr, whl_chnl *whl_arr[], int wheelnum) {
     // Нужно будет отладить.
 
     float factor = 0.02;
@@ -162,14 +170,14 @@ int calculete_prsc_and_perio(int val, int *arr, int wheelnum) {
 
     // Только временно
     /* if ((crtn_pscs[wheelnum] == 0) && (wheelnum == 2 )){ */
-    if (specialFLAG == 0){
+    if (whl_arr[numFL]->initial_tmp_flag == 0){
         /* arr[0] =  newpresc; */
         arr[0] =  24;   //tmp
         my_printf("prescaleronlyonece for %d wheel\n\r", wheelnum);
       } 
     else{
         /* arr[0] = crtn_pscs[wheelnum]; */
-        arr[0] = specialFLAG;
+        arr[0] = whl_arr[numFL]->initial_tmp_flag;
     }
 
     arr[1] = newpresc;
@@ -224,7 +232,7 @@ int calculete_prsc_and_perio(int val, int *arr, int wheelnum) {
 }
 
 
-void set_new_speeds(int vFLrpm, int vFRrpm, int vRLrpm, int vRRrpm) {
+void set_new_speeds(int vFLrpm, int vFRrpm, int vRLrpm, int vRRrpm, whl_chnl *whl_arr[]) {
     //__HAL_TIM_SET_PRESCALER(&htim3, val );
     //__HAL_TIM_SET_AUTORELOAD(&htim3, val );
     /* permutations! */
@@ -238,7 +246,7 @@ void set_new_speeds(int vFLrpm, int vFRrpm, int vRLrpm, int vRRrpm) {
     int arr_with_calculations[4] = {300, 300, 300, 300};
 
 
-//////////////////////////////////    TIMER2 -  FL  /////////////////////////
+       ////////////    TIMER2 -  FL  ///////////////
 
 
     if (vFLrpm == 0) {
@@ -247,16 +255,11 @@ void set_new_speeds(int vFLrpm, int vFRrpm, int vRLrpm, int vRRrpm) {
     } else {
         TIM2->CR1 |= TIM_CR1_CEN;  // enable
 
-        calculete_prsc_and_perio(vFLrpm, arr_with_calculations, 0);
-
-        int i;
-        /* for (i = 0 ; i < 4; i++){ */
-            /* printf("calc[%d]: %d  ", i, arr_with_calculations[i]); */
-        /* } */
-        /* printf("\n"); */
+        calculete_prsc_and_perio(vFLrpm, arr_with_calculations, whl_arr, numFL);
 
 
-        if (vFLrpm > crtn_spds[0]) {
+        if (vFLrpm > whl_arr[numFL]->prev_speed) {
+            
             HAL_GPIO_TogglePin(LED_RX2_GPIO_Port, LED_RX2_Pin);
 
 
@@ -286,17 +289,17 @@ void set_new_speeds(int vFLrpm, int vFRrpm, int vRLrpm, int vRRrpm) {
                 TIM2->ARR = arr_with_calculations[2];
                 if (arr_with_calculations[0] != arr_with_calculations[1]) {
 
-                    going_to_change_prescaler_timer2  = 1;
-                   /* TIM2 -> CCMR1 &= ~TIM_CCMR1_OC1M;    // ref manual 1212 and 1273 */
+                   whl_arr[numFL]->psc_change_flag  = 1;
+                   g_psc_change_flag = 1;
                    TIM2 -> CCMR1 &= ~TIM_CCMR1_OC1M_0;    // ref manual 1212 and 1273
                    TIM2 -> CCMR1 &= ~TIM_CCMR1_OC1M_1;    // ref manual 1212 and 1273
                    TIM2 -> CCMR1 &= ~TIM_CCMR1_OC1M_2;    // ref manual 1212 and 1273
                    TIM2 -> CCMR1 &= ~TIM_CCMR1_OC1M_3;    // ref manual 1212 and 1273
 
-                    TIM2->CR1 &= ~TIM_CR1_ARPE;
+                   TIM2->CR1 &= ~TIM_CR1_ARPE;
 
-                    TIM2->PSC = arr_with_calculations[1];
-                    TIM2->ARR = arr_with_calculations[3];
+                   TIM2->PSC = arr_with_calculations[1];
+                   TIM2->ARR = arr_with_calculations[3];
 
                 }
             }
@@ -321,35 +324,25 @@ void set_new_speeds(int vFLrpm, int vFRrpm, int vRLrpm, int vRRrpm) {
                 TIM2->CR1 |= TIM_CR1_ARPE;
                 /* TIM2->PSC = arr_with_calculations[0]; */
                 TIM2->ARR = arr_with_calculations[2];
+
             if (arr_with_calculations[0] != arr_with_calculations[1]) {
 
-                going_to_change_prescaler_timer2  = 1;
-               /* TIM2 -> CCMR1 &= ~TIM_CCMR1_OC1M;    // ref manual 1212 and 1273 */
+               whl_arr[numFL]->psc_change_flag = 1;
+               g_psc_change_flag = 1;
+
                TIM2 -> CCMR1 &= ~TIM_CCMR1_OC1M_0;    // ref manual 1212 and 1273
                TIM2 -> CCMR1 &= ~TIM_CCMR1_OC1M_1;    // ref manual 1212 and 1273
                TIM2 -> CCMR1 &= ~TIM_CCMR1_OC1M_2;    // ref manual 1212 and 1273
                TIM2 -> CCMR1 &= ~TIM_CCMR1_OC1M_3;    // ref manual 1212 and 1273
 
+               TIM2->PSC = arr_with_calculations[1];
+               TIM2->ARR = arr_with_calculations[3];
 
-
-                /* TIM2->CCER &=~ CC4E_LL_TIM_CC; */
-                TIM2->PSC = arr_with_calculations[1];
-                TIM2->ARR = arr_with_calculations[3];
-
-                HAL_GPIO_TogglePin(PreLast_GPIO_Port, PreLast_Pin);
-
-                /* my_printf("------------------new prescaler--------------------\n"); */
-
-                /* for (i = 0 ; i < 4; i++){ */
-                    /* my_printf("calc[%d]: %d  ", i, arr_with_calculations[i]); */
-                /* } */
-                /* my_printf("\n"); */
-                
-
+               HAL_GPIO_TogglePin(PreLast_GPIO_Port, PreLast_Pin);
             }
         }
-        specialFLAG = arr_with_calculations[1];
-        crtn_spds[0] = vFLrpm;
+        whl_arr[numFL]->initial_tmp_flag = arr_with_calculations[1];
+        whl_arr[numFL]->prev_speed = vFLrpm;
     }
 
 
@@ -420,9 +413,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
         /* my_printf("t2:arr: %d /n", v_arr); */
 
 
-        if( going_to_change_prescaler_timer2 == 1){
+        if( g_psc_change_flag == 1){
 
-            going_to_change_prescaler_timer2 = 0;
+            g_psc_change_flag = 0;
 
             do_int_in_while = 1;
 
@@ -501,6 +494,16 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
     }
 }
 }
+calculate_arr(whl_chnl *whl_arr[], int whl){
+    //
+    //примеры обращения к элемента структуры
+ //   whl_arr[whl]->pref_speed
+ //   whl_arr[whl]->cur_psc
+ //   whl_arr[whl]->flag
+}
+
+
+
 
 /* USER CODE END 0 */
 
@@ -572,6 +575,33 @@ int main(void)
     int realcou = 0;
     int seconds_from_start = 0;
 printf("async debug is on");
+
+whl_chnl fl_whl_s;
+whl_chnl *p_fl_whl;
+p_fl_whl = &fl_whl_s;
+
+whl_chnl fr_whl_s;
+whl_chnl *p_fr_whl;
+p_fr_whl = &fr_whl_s;
+
+whl_chnl rl_whl_s;
+whl_chnl *p_rl_whl;
+p_rl_whl = &rl_whl_s;
+
+whl_chnl rr_whl_s;
+whl_chnl *p_rr_whl;
+p_rr_whl = &rr_whl_s;
+
+whl_chnl *whl_arr[4];
+
+whl_arr[0] = p_fr_whl;
+whl_arr[1] = p_fl_whl;
+whl_arr[2] = p_rl_whl;
+whl_arr[3] = p_rr_whl;
+
+calculate_arr(whl_arr, 0);    //  делаю функцию, которая  принимае int
+
+
     while (1) {
     /* USER CODE END WHILE */
 
@@ -582,7 +612,7 @@ printf("async debug is on");
         /* HAL_Delay(0.01); // Insert delay 100 ms */
         /* printf("100ms passed\n"); */
 if (do_int_in_while == 1){
-do_int_in_while = 0;
+        do_int_in_while = 0;
 
         TIM2 -> CCMR1 |= TIM_CCMR1_OC1M_0;    // ref manual 1274
         TIM2 -> CCMR1 |= TIM_CCMR1_OC1M_1;     
@@ -626,7 +656,7 @@ do_int_in_while = 0;
 
             /*my_printf("vFLrpm: %d vFRrpm: %d  vRLrpm: %d  vRRrpm: %d \n", vFLrpm, vFRrpm, vRLrpm,
              * vRRrpm);*/
-            set_new_speeds(vFLrpm, vFRrpm, vRLrpm, vRRrpm);
+            set_new_speeds(vFLrpm, vFRrpm, vRLrpm, vRRrpm, whl_arr);
             
             counter += 1;
 
