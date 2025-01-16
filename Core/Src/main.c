@@ -265,7 +265,7 @@ void set_new_speeds(int vFLrpm, int vFRrpm, int vRLrpm, int vRRrpm, whl_chnl *wh
                                    //
         uint32_t current_32bit_period = calculete_period_only(vFLrpm);
 
-        if (vRLrpm > whl_arr[numFL]->prev_speed) {
+        if (vFLrpm > whl_arr[numFL]->prev_speed) {
 
                 TIM2->CR1 |= TIM_CR1_ARPE;
                 TIM2->ARR = current_32bit_period;
@@ -289,6 +289,7 @@ void set_new_speeds(int vFLrpm, int vFRrpm, int vRLrpm, int vRRrpm, whl_chnl *wh
                     TIM2->ARR = current_32bit_period;
                 }
                 else{
+                    // Не должна никогда выполняться. 
                     TIM2->CR1 &= ~TIM_CR1_ARPE;
                     TIM2->ARR = current_32bit_period;
                 }
@@ -307,7 +308,7 @@ void set_new_speeds(int vFLrpm, int vFRrpm, int vRLrpm, int vRRrpm, whl_chnl *wh
                                    //
         uint32_t current_32bit_period = calculete_period_only(vRRrpm);
 
-        if (vRLrpm > whl_arr[numRR]->prev_speed) {
+        if (vRRrpm > whl_arr[numRR]->prev_speed) {
 
                 TIM5->CR1 |= TIM_CR1_ARPE;
                 TIM5->ARR = current_32bit_period;
@@ -384,7 +385,6 @@ void set_new_speeds(int vFLrpm, int vFRrpm, int vRLrpm, int vRRrpm, whl_chnl *wh
                  - пишем новый ARR  по старому прескалеру (без буфера)
                  - если PSC поменялся, то кладём уже по буферу и PSC и ARR.
                  */
-                TIM3->CR1 |= TIM_CR1_ARPE;  // выключаем буфер для ARR.
                 TIM3->ARR = arr_with_calculations[2];
                 if (arr_with_calculations[0] != arr_with_calculations[1]) {
 
@@ -773,30 +773,30 @@ int main(void)
     int seconds_from_start = 0;
 printf("async debug is on");
 
-whl_chnl fl_whl_s = {0, &htim2, 0, 24, 0, 0} ;
+whl_chnl fl_whl_s = {numFL, &htim2, 0, 12, 0, 0} ;
 whl_chnl *p_fl_whl;
 p_fl_whl = &fl_whl_s;
 
-whl_chnl fr_whl_s = {1, &htim3, 0, 24, 0, 0};
+whl_chnl fr_whl_s = {numFR, &htim3, 0, 24, 0, 0};
 whl_chnl *p_fr_whl;
 p_fr_whl = &fr_whl_s;
 
-whl_chnl rl_whl_s = {2, &htim4, 0, 24, 0, 0};
+whl_chnl rl_whl_s = {numRL, &htim4, 0, 24, 0, 0};
 whl_chnl *p_rl_whl;
 p_rl_whl = &rl_whl_s;
 
-whl_chnl rr_whl_s ={3, &htim4, 0, 24, 0, 0} ;
+whl_chnl rr_whl_s ={numRR, &htim5, 0, 12, 0, 0} ;
 whl_chnl *p_rr_whl;
 p_rr_whl = &rr_whl_s;
 
 whl_chnl *whl_arr[4];
 
-whl_arr[0] = p_fr_whl;
-whl_arr[1] = p_fl_whl;
-whl_arr[2] = p_rl_whl;
-whl_arr[3] = p_rr_whl;
+whl_arr[numFL] = p_fl_whl;
+whl_arr[numFR] = p_fr_whl;
+whl_arr[numRL] = p_rl_whl;
+whl_arr[numRR] = p_rr_whl;
 
-calculate_arr(whl_arr, 0);    //  делаю функцию, которая  принимае int
+/* calculate_arr(whl_arr, 0);    //  делаю функцию, которая  принимае int */
 
 
     while (1) {
@@ -826,7 +826,7 @@ if (do_int_in_while == 1){
             /* TIM2->CR1 &=~ UIF; */
             whl_arr[i] -> htim-> Instance -> SR = 0;                // Clearing the UIF bit
             whl_arr[i] -> htim-> Instance -> CR1 |= TIM_CR1_CEN;
-            my_printf("did prescaler_change_down\n\r");
+            /* my_printf("did prescaler_change_down\n\r"); */
 
         }
 
