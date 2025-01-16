@@ -151,6 +151,14 @@ void PrintArray(uint8_t *data_arr) {
     printf("\n");
 }
 
+uint32_t calculete_period_only(int val) {
+    // For 32bit timer
+
+    float factor = 0.02;
+    return  (APB1_CLK / (val * factor * MinutTeethFactor * (12 + 1))) - 1;  // значение регистра ARR
+
+}
+
 int calculete_prsc_and_perio(int val, int *arr, whl_chnl *whl_arr[], int wheelnum) {
     // Нужно будет отладить.
 
@@ -243,6 +251,96 @@ void set_new_speeds(int vFLrpm, int vFRrpm, int vRLrpm, int vRRrpm, whl_chnl *wh
     /* ----- */
     /* 1) going up (speed up) */
     /* 2) going down. */
+    
+    // 32-bit timers first
+
+
+
+       ////////////    TIMER2 -  FL  ///////////////
+    if (vFLrpm == 0) {
+        TIM2->CR1 &= ~((uint16_t)TIM_CR1_CEN);
+
+    } else {
+        TIM2->CR1 |= TIM_CR1_CEN;  // enable
+                                   //
+        uint32_t current_32bit_period = calculete_period_only(vFLrpm);
+
+        if (vRLrpm > whl_arr[numFL]->prev_speed) {
+
+                TIM2->CR1 |= TIM_CR1_ARPE;
+                TIM2->ARR = current_32bit_period;
+
+                if(TIM2->CNT > current_32bit_period){
+                    TIM2->EGR |= TIM_EGR_UG;
+                }
+
+            HAL_GPIO_TogglePin(LED_RX2_GPIO_Port, LED_RX2_Pin);
+
+        } else {
+
+
+            /* my_printf(" ARR: %d\n\r", arr_with_calculations[0]); */
+
+            HAL_GPIO_TogglePin(LED_TX2_GPIO_Port, LED_TX2_Pin);
+
+                if(TIM2->CNT < current_32bit_period){
+
+                    TIM2->CR1 |= TIM_CR1_ARPE;
+                    TIM2->ARR = current_32bit_period;
+                }
+                else{
+                    TIM2->CR1 &= ~TIM_CR1_ARPE;
+                    TIM2->ARR = current_32bit_period;
+                }
+
+            }
+        }
+        whl_arr[numFL]->prev_speed = vFLrpm;
+
+
+       ////////////    TIMER5 -  RR  ///////////////
+    if (vRRrpm == 0) {
+        TIM5->CR1 &= ~((uint16_t)TIM_CR1_CEN);
+
+    } else {
+        TIM5->CR1 |= TIM_CR1_CEN;  // enable
+                                   //
+        uint32_t current_32bit_period = calculete_period_only(vRRrpm);
+
+        if (vRLrpm > whl_arr[numRR]->prev_speed) {
+
+                TIM5->CR1 |= TIM_CR1_ARPE;
+                TIM5->ARR = current_32bit_period;
+
+                if(TIM5->CNT > current_32bit_period){
+                    TIM5->EGR |= TIM_EGR_UG;
+                }
+
+            HAL_GPIO_TogglePin(LED_RX2_GPIO_Port, LED_RX2_Pin);
+
+        } else {
+
+
+            /* my_printf(" ARR: %d\n\r", arr_with_calculations[0]); */
+
+            HAL_GPIO_TogglePin(LED_TX2_GPIO_Port, LED_TX2_Pin);
+
+                if(TIM5->CNT < current_32bit_period){
+
+                    TIM5->CR1 |= TIM_CR1_ARPE;
+                    TIM5->ARR = current_32bit_period;
+                }
+                else{
+                    TIM5->CR1 &= ~TIM_CR1_ARPE;
+                    TIM5->ARR = current_32bit_period;
+                }
+
+            }
+        }
+        whl_arr[numRR]->prev_speed = vRRrpm;
+
+
+
 
     int arr_with_calculations[4] = {300, 300, 300, 300};
 
@@ -718,6 +816,7 @@ if (do_int_in_while == 1){
       //  }
       for(uint8_t i=0; i<4; i++){
         if (whl_arr[i]->psc_change_flag == 1){
+            whl_arr[i]->psc_change_flag = 0;
 
             whl_arr[i] -> htim -> Instance -> CCMR1 |= TIM_CCMR1_OC1M_0;    // ref manual 1274
             whl_arr[i] -> htim -> Instance -> CCMR1 |= TIM_CCMR1_OC1M_1;     
@@ -984,7 +1083,7 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 75;
+  htim2.Init.Prescaler = 12;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim2.Init.Period = 10000;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -1043,7 +1142,7 @@ static void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 1 */
   htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 75;
+  htim3.Init.Prescaler = 24;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim3.Init.Period = 10000;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -1102,7 +1201,7 @@ static void MX_TIM4_Init(void)
 
   /* USER CODE END TIM4_Init 1 */
   htim4.Instance = TIM4;
-  htim4.Init.Prescaler = 75;
+  htim4.Init.Prescaler = 24;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim4.Init.Period = 10000;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -1160,7 +1259,7 @@ static void MX_TIM5_Init(void)
 
   /* USER CODE END TIM5_Init 1 */
   htim5.Instance = TIM5;
-  htim5.Init.Prescaler = 75;
+  htim5.Init.Prescaler = 12;
   htim5.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim5.Init.Period = 10000;
   htim5.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
