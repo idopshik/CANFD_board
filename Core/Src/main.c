@@ -122,6 +122,7 @@ static void MX_TIM6_Init(void);
 static void MX_TIM1_Init(void);
 /* USER CODE BEGIN PFP */
 static void CANFD1_Set_Filtes(void);
+void my_printf(const char *fmt, ...);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -143,10 +144,15 @@ void PrintArrayLen(uint8_t *data_arr, uint8_t data_length) {
 
 void PrintArray(uint8_t *data_arr) {
     int debval;
-    debval = (sizeof(data_arr) / sizeof(data_arr[0]));
+
+    int denominator = sizeof(data_arr[0]);
+
+    if(denominator > 0){
+    debval = (sizeof(data_arr) / denominator);
     for (int i = 0; i < debval; i++) {
         // printf("%lf\n",foo[i]);
         printf("%#x ", data_arr[i]);
+    }
     }
     printf("\n");
 }
@@ -346,7 +352,7 @@ void set_new_speeds(int vFLrpm, int vFRrpm, int vRLrpm, int vRRrpm, whl_chnl *wh
     int arr_with_calculations[4] = {300, 300, 300, 300};
 
 
-       ////////////    TIMER3 -  FR  ///////////////
+       ////////////    TIMER4 -  FR  ///////////////
 
 
     if (vFRrpm == 0) {
@@ -361,6 +367,12 @@ void set_new_speeds(int vFLrpm, int vFRrpm, int vRLrpm, int vRRrpm, whl_chnl *wh
         if (vFRrpm > whl_arr[numFR]->prev_speed) {
             
             HAL_GPIO_TogglePin(LED_RX2_GPIO_Port, LED_RX2_Pin);
+
+               if(whl_arr[numFR]->psc_change_flag  == 1){
+                     whl_arr[numFR]->psc_change_flag = 0;
+                     TIM3->CCMR1 |= TIM_CCMR1_OC1M_0;
+                     TIM3->CCMR1 |= TIM_CCMR1_OC1M_1;
+               }
 
 
             if (TIM3->CNT > (arr_with_calculations[2])) {
@@ -462,6 +474,12 @@ void set_new_speeds(int vFLrpm, int vFRrpm, int vRLrpm, int vRRrpm, whl_chnl *wh
         if (vRLrpm > whl_arr[numRL]->prev_speed) {
             
             HAL_GPIO_TogglePin(LED_RX2_GPIO_Port, LED_RX2_Pin);
+
+               if(whl_arr[numRL]->psc_change_flag  == 1){
+                     whl_arr[numRL]->psc_change_flag = 0;
+                     TIM4->CCMR1 |= TIM_CCMR1_OC1M_0;
+                     TIM4->CCMR1 |= TIM_CCMR1_OC1M_1;
+               }
 
 
             if (TIM4->CNT > (arr_with_calculations[2])) {
@@ -691,7 +709,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
     }
 }
 }
-calculate_arr(whl_chnl *whl_arr[], int whl){
+void calculate_arr(whl_chnl *whl_arr[], int whl){
     //
     //примеры обращения к элемента структуры
  //   whl_arr[whl]->pref_speed
