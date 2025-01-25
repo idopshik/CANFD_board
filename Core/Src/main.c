@@ -399,30 +399,27 @@ void set_new_speeds(int vFLrpm, int vFRrpm, int vRLrpm, int vRRrpm, whl_chnl *wh
                      - пишем новый ARR  по старому прескалеру (без буфера)
                      - если PSC поменялся, то кладём уже по буферу и PSC и ARR.
                      */
-
+                    TIM3->CR1 |= TIM_CR1_ARPE;
+                    TIM3->ARR = arr_with_calculations[2];
                     if (arr_with_calculations[0] != arr_with_calculations[1]) {
-                        /* whl_arr[numFR]->psc_change_flag = 1; */
-                        /* g_psc_change_flag = 1; */
-                        /* TIM3->CCMR1 &= ~TIM_CCMR1_OC1M_0;  // ref manual 1212 and 1273 */
-                        /* TIM3->CCMR1 &= ~TIM_CCMR1_OC1M_1;  // ref manual 1212 and 1273 */
-                        /* TIM3->CCMR1 &= ~TIM_CCMR1_OC1M_2;  // ref manual 1212 and 1273 */
-                        /* TIM3->CCMR1 &= ~TIM_CCMR1_OC1M_3;  // ref manual 1212 and 1273 */
+
 
                         TIM3->CR1 &= ~TIM_CR1_ARPE;
-
                         TIM3->PSC = arr_with_calculations[1];
                         TIM3->ARR = arr_with_calculations[3];
 
                         HAL_GPIO_TogglePin(LastPin_GPIO_Port, LastPin_Pin);
 
+                        // только для теста. TODO 
+                        TIM3->EGR = TIM_EGR_UG;
                     }
 
-                    TIM3->CR1 |= TIM_CR1_ARPE;    // будем писать сразу в ARR (мимо shadow)
-                    TIM3->ARR = arr_with_calculations[2];
-                    /* Костыльный предохранитель от убегания. */
-                    if (TIM3->CNT > arr_with_calculations[2]) {
-                        TIM3->EGR |= TIM_EGR_UG;
-                    }
+                    /* TIM3->CR1 |= TIM_CR1_ARPE;    // будем писать сразу в ARR (мимо shadow) */
+                    /* TIM3->ARR = arr_with_calculations[2]; */
+                    /* [> Костыльный предохранитель от убегания. <] */
+                    /* if (TIM3->CNT > arr_with_calculations[2]) { */
+                        /* TIM3->EGR |= TIM_EGR_UG; */
+                    /* } */
 
 
                 }
@@ -440,20 +437,14 @@ void set_new_speeds(int vFLrpm, int vFRrpm, int vRLrpm, int vRRrpm, whl_chnl *wh
                 без буфера, рассчитываем новую пару и пишем по буферу!
                  */
 
+                TIM3->CR1 |= TIM_CR1_ARPE;
+                TIM3->ARR = arr_with_calculations[2];
+
+                HAL_GPIO_TogglePin(PreLast_GPIO_Port, Pre_pre_Pin);
 
                 if (arr_with_calculations[0] != arr_with_calculations[1]) {
-                    /* whl_arr[numFR]->psc_change_flag = 1; */
-                    /* g_psc_change_flag = 1; */
-                    /* TIM3->CCMR1 &= ~TIM_OCMODE_TOGGLE; // nonfunctional */
-
-                    /* TIM3->CCMR1 &= ~TIM_CCMR1_OC1M; //set to 0 = keep level */
-                                                    
-                    /* TIM3->CCMR1 &= ~TIM_CCMR1_OC1M_0;  // ref manual 1212 and 1273 */
-                    /* TIM3->CCMR1 &= ~TIM_CCMR1_OC1M_1;  // ref manual 1212 and 1273 */
-                    /* TIM3->CCMR1 &= ~TIM_CCMR1_OC1M_2;  // ref manual 1212 and 1273 */
-                    /* TIM3->CCMR1 &= ~TIM_CCMR1_OC1M_3;  // ref manual 1212 and 1273 */
                     
-                    TIM3->CR1 &= ~TIM_CR1_ARPE;
+                    /* TIM3->CR1 &= ~TIM_CR1_ARPE; */
 
                     TIM3->PSC = arr_with_calculations[1];
                     TIM3->ARR = arr_with_calculations[3];
@@ -461,11 +452,7 @@ void set_new_speeds(int vFLrpm, int vFRrpm, int vRLrpm, int vRRrpm, whl_chnl *wh
                     HAL_GPIO_TogglePin(PreLast_GPIO_Port, PreLast_Pin);
                 }
 
-                TIM3->CR1 |= TIM_CR1_ARPE;
-                /* TIM3->PSC = arr_with_calculations[0]; */
-                TIM3->ARR = arr_with_calculations[2];
 
-                HAL_GPIO_TogglePin(PreLast_GPIO_Port, Pre_pre_Pin);
             }
             whl_arr[numFR]->initial_tmp_flag = arr_with_calculations[1];
             whl_arr[numFR]->prev_speed = vFRrpm;
@@ -481,11 +468,12 @@ void set_new_speeds(int vFLrpm, int vFRrpm, int vRLrpm, int vRRrpm, whl_chnl *wh
 
     ////////////    TIMER4 -  FL  ///////////////
 
+
     if (vFLrpm == 0) {
         TIM4->CR1 &= ~((uint16_t)TIM_CR1_CEN);
     }
     else {
-        TIM4->CR1 |= TIM_CR1_CEN;  
+        TIM4->CR1 |= TIM_CR1_CEN;  // enable
 
         calculete_prsc_and_perio(vFLrpm, arr_with_calculations, whl_arr, numFL);
 
@@ -494,6 +482,7 @@ void set_new_speeds(int vFLrpm, int vFRrpm, int vRLrpm, int vRRrpm, whl_chnl *wh
 
 
                 if (whl_arr[numFL]->psc_change_flag == 1) {
+                    //this isn't functional now.
                     whl_arr[numFL]->psc_change_flag = 0;
                     TIM4->CCMR1 |= TIM_CCMR1_OC1M_0;
                     TIM4->CCMR1 |= TIM_CCMR1_OC1M_1;
@@ -505,44 +494,82 @@ void set_new_speeds(int vFLrpm, int vFRrpm, int vRLrpm, int vRRrpm, whl_chnl *wh
                     TIM4->EGR = TIM_EGR_UG;
 
                 }
+                /*
+                В любом случае рассчитываем точку по старому прескалеру.
+                Если точка пройдена (по старому прескалеру) то.
+
+                     - Если есть новое значение пресклера, кладём его в
+                     PSC . Мы всё равно ведь будем вызывать  UG ?? оно как
+                     раз применится.
+                     - Кладём ARR (рассчитанный по новому)
+                     - Вызываем UG.
+                 */
                 else {
-                    TIM4->CR1 |= TIM_CR1_ARPE;    // будем писать сразу в ARR (мимо shadow)
+                    /*
+                     Точка ещё не пройдена. В этом случае нельзя вызвать UG.
+                     будет Glitch.
+                     - пишем новый ARR  по старому прескалеру (без буфера)
+                     - если PSC поменялся, то кладём уже по буферу и PSC и ARR.
+                     */
+                    TIM4->CR1 |= TIM_CR1_ARPE;
                     TIM4->ARR = arr_with_calculations[2];
                     if (arr_with_calculations[0] != arr_with_calculations[1]) {
 
-                        TIM4->CR1 &= ~TIM_CR1_ARPE;
 
+                        TIM4->CR1 &= ~TIM_CR1_ARPE;
                         TIM4->PSC = arr_with_calculations[1];
                         TIM4->ARR = arr_with_calculations[3];
 
+                        HAL_GPIO_TogglePin(LastPin_GPIO_Port, LastPin_Pin);
+
+                        // только для теста. TODO 
+                        TIM4->EGR = TIM_EGR_UG;
                     }
+
+                    /* TIM4->CR1 |= TIM_CR1_ARPE;    // будем писать сразу в ARR (мимо shadow) */
+                    /* TIM4->ARR = arr_with_calculations[2]; */
+                    /* [> Костыльный предохранитель от убегания. <] */
+                    /* if (TIM4->CNT > arr_with_calculations[2]) { */
+                        /* TIM4->EGR |= TIM_EGR_UG; */
+                    /* } */
+
+
                 }
             }
             else {
+                HAL_GPIO_TogglePin(LED_TX2_GPIO_Port, LED_TX2_Pin);
+                /*
+                меньше. Скорость уменьшается. В этом случае обычно.период
+                увеличивается. Но - прескалер может
+                увеличиться (переключиться), и тем самым рассчётное значение ARR
+                может быть значительно меньше, чем текущее.
+                1.  Если не меняется  PSC - пишем  ARR без буфер. Это не
+                вызывает никакх проблем вообще
+                2.  �?зменение  PSC в этом случае пишем по старому прескелеру
+                без буфера, рассчитываем новую пару и пишем по буферу!
+                 */
+
+                TIM4->CR1 |= TIM_CR1_ARPE;
+                TIM4->ARR = arr_with_calculations[2];
+
+                HAL_GPIO_TogglePin(PreLast_GPIO_Port, Pre_pre_Pin);
 
                 if (arr_with_calculations[0] != arr_with_calculations[1]) {
-                    whl_arr[numFL]->psc_change_flag = 1;
-                    g_psc_change_flag = 1;
-
-                    TIM4->CCMR1 &= ~TIM_CCMR1_OC1M; 
                     
-                    TIM4->CR1 &= ~TIM_CR1_ARPE;
+                    /* TIM4->CR1 &= ~TIM_CR1_ARPE; */
 
                     TIM4->PSC = arr_with_calculations[1];
                     TIM4->ARR = arr_with_calculations[3];
 
+                    HAL_GPIO_TogglePin(PreLast_GPIO_Port, PreLast_Pin);
                 }
 
-                TIM4->CR1 |= TIM_CR1_ARPE;
-                TIM4->ARR = arr_with_calculations[2];
 
             }
             whl_arr[numFL]->initial_tmp_flag = arr_with_calculations[1];
             whl_arr[numFL]->prev_speed = vFLrpm;
         }
     }
-
-
 
 
 
