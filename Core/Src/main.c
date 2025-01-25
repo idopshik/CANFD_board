@@ -122,6 +122,7 @@ static void MX_TIM1_Init(void);
 /* USER CODE BEGIN PFP */
 static void CANFD1_Set_Filtes(void);
 void my_printf(const char *fmt, ...);
+int calculete_prsc_and_perio(int val, int *arr, whl_chnl *whl_arr[], int wheelnum);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -186,7 +187,7 @@ int calculete_prsc_and_perio(int val, int *arr, whl_chnl *whl_arr[], int wheelnu
     /* if ((crtn_pscs[wheelnum] == 0) && (wheelnum == 2 )){ */
     if (whl_arr[wheelnum]->initial_tmp_flag == 0) {
         /* arr[0] =  newpresc; */
-        my_printf("prescaler_only_once for %d wheel\n\r", wheelnum);
+        /* my_printf("prescaler_only_once for %d wheel\n\r", wheelnum); */
         whl_arr[wheelnum]->initial_tmp_flag = 1;
         arr[0] = 24;  // tmp
     }
@@ -203,35 +204,36 @@ int calculete_prsc_and_perio(int val, int *arr, whl_chnl *whl_arr[], int wheelnu
     /* int tmp; */
     tmp = (APB1_CLK / (val * factor * MinutTeethFactor * (arr[0] + 1))) - 1;  // значение регистра ARR
     if (tmp > 65536) {
-        my_printf(" -------------> GLITCH!\n\r");
-        my_printf("res: %d \n\r", tmp);
-        my_printf("PSC:%d \n\r", arr[0]);
-        my_printf("signal: %d \n\n\r", val);
+        /* my_printf(" -------------> GLITCH!\n\r"); */
+        /* my_printf("res: %d \n\r", tmp); */
+        /* my_printf("PSC:%d \n\r", arr[0]); */
+        /* my_printf("signal: %d \n\n\r", val); */
         tmp = 65535;  // обрезаем. Хоть это и не правильно1
     }
     arr[2] = (int)tmp;
     if (arr[0] != arr[1]) {
-        my_printf("             --              \n\r");
-        my_printf("old_arr: %d\n\r", tmp);
+        /* my_printf("             --              \n\r"); */
+        /* my_printf("old_arr: %d\n\r", tmp); */
 
         tmp = ((APB1_CLK / (val * factor * MinutTeethFactor * (newpresc + 1))) - 1);  // значение регистра ARR
                                                                                       //
-        my_printf("new_arr: %d\n\r", tmp);
+        /* my_printf("new_arr: %d\n\r", tmp); */
 
         if (tmp > 65536) {
-            my_printf(" -------------> GLITCH_2!\n\r");
+            /* my_printf(" -------------> GLITCH_2!\n\r"); */
+            /* HAL_GPIO_TogglePin(PreLast_GPIO_Port, PreLast_Pin); */
             tmp = 65535;  // обрезаем. Хоть это и не правильно.
         }
 
         arr[3] = (int)tmp;
         /* arr[3] = 100; */
 
-        my_printf("old_arr_casted: %d\n\r", arr[2]);
-        my_printf("arr_casted: %d\n\r", arr[3]);
-        my_printf("PSC old: %d\n\r", arr[0]);
-        my_printf("PSC current: %d\n\n\r", arr[1]);
-        my_printf("val: %d\n\n\r", val);
-        my_printf("\n");
+        /* my_printf("old_arr_casted: %d\n\r", arr[2]); */
+        /* my_printf("arr_casted: %d\n\r", arr[3]); */
+        /* my_printf("PSC old: %d\n\r", arr[0]); */
+        /* my_printf("PSC current: %d\n\n\r", arr[1]); */
+        /* my_printf("val: %d\n\n\r", val); */
+        /* my_printf("\n"); */
 
         flag_to_check = 1;
     }
@@ -244,8 +246,6 @@ int calculete_prsc_and_perio(int val, int *arr, whl_chnl *whl_arr[], int wheelnu
 
 void set_new_speeds(int vFLrpm, int vFRrpm, int vRLrpm, int vRRrpm, whl_chnl *whl_arr[])
 {
-    HAL_GPIO_TogglePin (GPIOB, GPIO_PIN_4);
-
 
     int arr_with_calculations[4] = {300, 300, 300, 300};
 
@@ -259,82 +259,13 @@ void set_new_speeds(int vFLrpm, int vFRrpm, int vRLrpm, int vRRrpm, whl_chnl *wh
     else {
         TIM3->CR1 |= TIM_CR1_CEN;  // enable
 
-
-        HAL_GPIO_TogglePin (GPIOB, GPIO_PIN_5);
-        /* calculete_prsc_and_perio(vFRrpm, arr_with_calculations, whl_arr, numFR); */
-
-
-            int val = vFRrpm;
-            int wheelnum = numFR;
-
-            float factor = 0.02;
-
-            int newpresc;
-
-            if (val < 4274) {
-                newpresc = 1200;
-            }
-            else {
-                newpresc = 24;
-            }
-
-            if (whl_arr[wheelnum]->initial_tmp_flag == 0) {
-                whl_arr[wheelnum]->initial_tmp_flag = 1;
-                arr_with_calculations[0] = 24;  
-            }
-            else {
-
-                arr_with_calculations[0] = whl_arr[wheelnum]->prev_psc;
-            }
-            whl_arr[wheelnum]->prev_psc = newpresc;
-
-            arr_with_calculations[1] = newpresc;
-
-            uint32_t tmp;
-            tmp = (APB1_CLK / (val * factor * MinutTeethFactor * (arr_with_calculations[0] + 1))) - 1;  // значение регистра ARR
-            arr_with_calculations[2] = (int)tmp;
-            if (arr_with_calculations[0] != arr_with_calculations[1]) {
-
-                tmp = ((APB1_CLK / (val * factor * MinutTeethFactor * (newpresc + 1))) - 1);  // значение регистра ARR
-                                                                                              //
-                arr_with_calculations[3] = (int)tmp;
-
-
-                flag_to_check = 1;
-            }
-            else {
-                arr_with_calculations[3] = arr_with_calculations[2];
-            }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        HAL_GPIO_TogglePin(LastPin_GPIO_Port, LastPin_Pin);
-
+        calculete_prsc_and_perio(vFRrpm, arr_with_calculations, whl_arr, numFR);
 
         if (vFRrpm != whl_arr[numFR]->prev_speed) {
-
-
             if (vFRrpm > whl_arr[numFR]->prev_speed) {
 
+                HAL_GPIO_TogglePin(LastPin_GPIO_Port, LastPin_Pin);
+                HAL_GPIO_TogglePin(LED_RX2_GPIO_Port, LED_RX2_Pin);
 
                 if (whl_arr[numFR]->psc_change_flag == 1) {
                     whl_arr[numFR]->psc_change_flag = 0;
@@ -346,6 +277,7 @@ void set_new_speeds(int vFLrpm, int vFRrpm, int vRLrpm, int vRRrpm, whl_chnl *wh
                     TIM3->PSC = arr_with_calculations[1];
                     TIM3->ARR = arr_with_calculations[3];
                     TIM3->EGR = TIM_EGR_UG;
+
                 }
                 /*
                 В любом случае рассчитываем точку по старому прескалеру.
@@ -364,14 +296,15 @@ void set_new_speeds(int vFLrpm, int vFRrpm, int vRLrpm, int vRRrpm, whl_chnl *wh
                      - пишем новый ARR  по старому прескалеру (без буфера)
                      - если PSC поменялся, то кладём уже по буферу и PSC и ARR.
                      */
+                    TIM3->CR1 |= TIM_CR1_ARPE;    // будем писать сразу в ARR (мимо shadow)
                     TIM3->ARR = arr_with_calculations[2];
                     if (arr_with_calculations[0] != arr_with_calculations[1]) {
-                        whl_arr[numFR]->psc_change_flag = 1;
-                        g_psc_change_flag = 1;
-                        TIM3->CCMR1 &= ~TIM_CCMR1_OC1M_0;  // ref manual 1212 and 1273
-                        TIM3->CCMR1 &= ~TIM_CCMR1_OC1M_1;  // ref manual 1212 and 1273
-                        TIM3->CCMR1 &= ~TIM_CCMR1_OC1M_2;  // ref manual 1212 and 1273
-                        TIM3->CCMR1 &= ~TIM_CCMR1_OC1M_3;  // ref manual 1212 and 1273
+                        /* whl_arr[numFR]->psc_change_flag = 1; */
+                        /* g_psc_change_flag = 1; */
+                        /* TIM3->CCMR1 &= ~TIM_CCMR1_OC1M_0;  // ref manual 1212 and 1273 */
+                        /* TIM3->CCMR1 &= ~TIM_CCMR1_OC1M_1;  // ref manual 1212 and 1273 */
+                        /* TIM3->CCMR1 &= ~TIM_CCMR1_OC1M_2;  // ref manual 1212 and 1273 */
+                        /* TIM3->CCMR1 &= ~TIM_CCMR1_OC1M_3;  // ref manual 1212 and 1273 */
 
                         TIM3->CR1 &= ~TIM_CR1_ARPE;
 
@@ -394,31 +327,39 @@ void set_new_speeds(int vFLrpm, int vFRrpm, int vRLrpm, int vRRrpm, whl_chnl *wh
                 без буфера, рассчитываем новую пару и пишем по буферу!
                  */
 
-                TIM3->CR1 |= TIM_CR1_ARPE;
-                /* TIM3->PSC = arr_with_calculations[0]; */
-                TIM3->ARR = arr_with_calculations[2];
-
-                HAL_GPIO_TogglePin(PreLast_GPIO_Port, Pre_pre_Pin);
 
                 if (arr_with_calculations[0] != arr_with_calculations[1]) {
                     whl_arr[numFR]->psc_change_flag = 1;
                     g_psc_change_flag = 1;
+                    /* TIM3->CCMR1 &= ~TIM_OCMODE_TOGGLE; // nonfunctional */
 
-                    TIM3->CCMR1 &= ~TIM_CCMR1_OC1M_0;  // ref manual 1212 and 1273
-                    TIM3->CCMR1 &= ~TIM_CCMR1_OC1M_1;  // ref manual 1212 and 1273
-                    TIM3->CCMR1 &= ~TIM_CCMR1_OC1M_2;  // ref manual 1212 and 1273
-                    TIM3->CCMR1 &= ~TIM_CCMR1_OC1M_3;  // ref manual 1212 and 1273
+                    TIM3->CCMR1 &= ~TIM_CCMR1_OC1M; //set to 0 = keep level
+                                                    
+                    /* TIM3->CCMR1 &= ~TIM_CCMR1_OC1M_0;  // ref manual 1212 and 1273 */
+                    /* TIM3->CCMR1 &= ~TIM_CCMR1_OC1M_1;  // ref manual 1212 and 1273 */
+                    /* TIM3->CCMR1 &= ~TIM_CCMR1_OC1M_2;  // ref manual 1212 and 1273 */
+                    /* TIM3->CCMR1 &= ~TIM_CCMR1_OC1M_3;  // ref manual 1212 and 1273 */
+                    
+                    TIM3->CR1 &= ~TIM_CR1_ARPE;
 
                     TIM3->PSC = arr_with_calculations[1];
                     TIM3->ARR = arr_with_calculations[3];
 
                     HAL_GPIO_TogglePin(PreLast_GPIO_Port, PreLast_Pin);
                 }
+
+                TIM3->CR1 |= TIM_CR1_ARPE;
+                /* TIM3->PSC = arr_with_calculations[0]; */
+                TIM3->ARR = arr_with_calculations[2];
+
+                HAL_GPIO_TogglePin(PreLast_GPIO_Port, Pre_pre_Pin);
             }
             whl_arr[numFR]->initial_tmp_flag = arr_with_calculations[1];
             whl_arr[numFR]->prev_speed = vFRrpm;
         }
     }
+
+    ////////////    TIMER4 -  RL  ///////////////
 
 }
 
@@ -463,13 +404,17 @@ void print_test(void)
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
+
     if (htim->Instance == TIM6) {
         /*my_printf("100 ms \n");*/
         ms100Flag = 1;
         ms100Flag_2 = 1;
     }
 
-    if (htim->Instance == TIM2) {
+    if (htim->Instance == TIM3) {
+
+        HAL_GPIO_TogglePin(PreLast_GPIO_Port, ZeroB_Pin);
+
         // почему разыменование?? - требование к аргументу - __HANDLE__: TIM
         //
         // handle
@@ -487,7 +432,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
             /* TIM2 -> CCMR1 |= TIM_CCMR1_OC1M; //set to 1 - toggle again */
         }
     }
-    else if (htim->Instance == TIM3) {
+    else if (htim->Instance == TIM8) {
         if (going_to_change_prescaler_timer3 == 1) {
             going_to_change_prescaler_timer3 = 0;
             TIM3->CCMR1 |= TIM_CCMR1_OC1M_0;  // ref manual 1274
@@ -509,18 +454,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
         /* set CEN bit of the TIMx_CR1 (enable counter) */
     }
     else if (htim->Instance == TIM4) {
-        if (going_to_change_prescaler_timer4 == 1) {
-            going_to_change_prescaler_timer4 = 0;
-
-            TIM4->CCMR1 |= TIM_CCMR1_OC1M_0;  // ref manual 1274
-            TIM4->CCMR1 |= TIM_CCMR1_OC1M_1;
-            TIM4->CR1 &= ~TIM_CR1_CEN;
-            TIM4->EGR |= TIM_EGR_UG;
-            /* TIM4->CR1 &=~ UIF; */
-            TIM4->SR = 0;  // Clearing the UIF bit
-            TIM4->CR1 |= TIM_CR1_CEN;
-
-        }
     }
     else if (htim->Instance == TIM5) {
         if (going_to_change_prescaler_timer5 == 1) {
@@ -648,11 +581,12 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
+
         /* Не забудь потом убрать эту задержку  */
 
         /* HAL_Delay(0.01); // Insert delay 100 ms */
         /* printf("100ms passed\n"); */
-        if (do_int_in_while == 1) {
+        if (do_int_in_while == 666) {
             do_int_in_while = 0;
 
             //  if(whl_arr->psc_change_flag){
@@ -660,13 +594,13 @@ int main(void)
             //  }
             for (uint8_t i = 0; i < 4; i++) {
                 if (whl_arr[i]->psc_change_flag == 1) {
-                    
-
-
                     whl_arr[i]->psc_change_flag = 0;
 
-                    whl_arr[i]->htim->Instance->CCMR1 |= TIM_CCMR1_OC1M_0;  // ref manual 1274
-                    whl_arr[i]->htim->Instance->CCMR1 |= TIM_CCMR1_OC1M_1;
+                    HAL_GPIO_TogglePin(PreLast_GPIO_Port, FourB_Pin);
+    
+                    whl_arr[i]->htim->Instance->CCMR1 |= TIM_OCMODE_TOGGLE;  // ref manual 1274
+                    /* whl_arr[i]->htim->Instance->CCMR1 |= TIM_CCMR1_OC1M_0;  // ref manual 1274 */
+                    /* whl_arr[i]->htim->Instance->CCMR1 |= TIM_CCMR1_OC1M_1; */
 
                     whl_arr[i]->htim->Instance->CR1 &= ~TIM_CR1_CEN;
                     whl_arr[i]->htim->Instance->EGR |= TIM_EGR_UG;
@@ -1260,7 +1194,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(LED_RX3_GPIO_Port, LED_RX3_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4|GPIO_PIN_5|Pre_pre_Pin|PreLast_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, ZeroB_Pin|FourB_Pin|Pre_pre_Pin|PreLast_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LastPin_GPIO_Port, LastPin_Pin, GPIO_PIN_RESET);
@@ -1287,6 +1221,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LED_RX3_GPIO_Port, &GPIO_InitStruct);
 
+  /*Configure GPIO pins : ZeroB_Pin FourB_Pin Pre_pre_Pin PreLast_Pin */
+  GPIO_InitStruct.Pin = ZeroB_Pin|FourB_Pin|Pre_pre_Pin|PreLast_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
   /*Configure GPIO pin : CAN_RX3_Pin */
   GPIO_InitStruct.Pin = CAN_RX3_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
@@ -1302,13 +1243,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   GPIO_InitStruct.Alternate = GPIO_AF4_I2C1;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : PB4 PB5 Pre_pre_Pin PreLast_Pin */
-  GPIO_InitStruct.Pin = GPIO_PIN_4|GPIO_PIN_5|Pre_pre_Pin|PreLast_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin : LastPin_Pin */
   GPIO_InitStruct.Pin = LastPin_Pin;

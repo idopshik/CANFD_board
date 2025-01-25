@@ -77,6 +77,8 @@ void Error_Handler(void);
 #define LED_TX3_GPIO_Port GPIOA
 #define LED_RX3_Pin GPIO_PIN_4
 #define LED_RX3_GPIO_Port GPIOC
+#define ZeroB_Pin GPIO_PIN_0
+#define ZeroB_GPIO_Port GPIOB
 #define CAN_RX2_Pin GPIO_PIN_12
 #define CAN_RX2_GPIO_Port GPIOB
 #define CAN_TX2_Pin GPIO_PIN_13
@@ -87,6 +89,8 @@ void Error_Handler(void);
 #define CAN_RX1_GPIO_Port GPIOA
 #define CAN_TX1_Pin GPIO_PIN_12
 #define CAN_TX1_GPIO_Port GPIOA
+#define FourB_Pin GPIO_PIN_4
+#define FourB_GPIO_Port GPIOB
 #define Pre_pre_Pin GPIO_PIN_7
 #define Pre_pre_GPIO_Port GPIOB
 #define PreLast_Pin GPIO_PIN_9
