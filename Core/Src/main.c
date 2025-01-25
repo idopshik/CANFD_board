@@ -246,10 +246,114 @@ int calculete_prsc_and_perio(int val, int *arr, whl_chnl *whl_arr[], int wheelnu
 
 void set_new_speeds(int vFLrpm, int vFRrpm, int vRLrpm, int vRRrpm, whl_chnl *whl_arr[])
 {
+    //__HAL_TIM_SET_PRESCALER(&htim3, val );
+    //__HAL_TIM_SET_AUTORELOAD(&htim3, val );
+    /* permutations! */
+    /* 1) changing prescaler up or down  */
+    /* 2) the same prescaler */
+    /* ----- */
+    /* 1) going up (speed up) */
+    /* 2) going down. */
+
+    // 32-bit timers first
+
+    ////////////    TIMER2 -  RL  ///////////////
+    if (vRLrpm == 0) {
+        TIM2->CR1 &= ~((uint16_t)TIM_CR1_CEN);
+    }
+    else {
+        TIM2->CR1 |= TIM_CR1_CEN;  // enable
+                                   //
+        uint32_t current_32bit_period = calculete_period_only(vRLrpm);
+
+        if (vRLrpm > whl_arr[numRL]->prev_speed) {
+            TIM2->CR1 |= TIM_CR1_ARPE;
+            TIM2->ARR = current_32bit_period;
+
+            if (TIM2->CNT > current_32bit_period) {
+                TIM2->EGR |= TIM_EGR_UG;
+            }
+
+            HAL_GPIO_TogglePin(LED_RX2_GPIO_Port, LED_RX2_Pin);
+        }
+        else {
+            /* my_printf(" ARR: %d\n\r", arr_with_calculations[0]); */
+
+            HAL_GPIO_TogglePin(LED_TX2_GPIO_Port, LED_TX2_Pin);
+
+            if (TIM2->CNT < current_32bit_period) {
+                TIM2->CR1 |= TIM_CR1_ARPE;
+                TIM2->ARR = current_32bit_period;
+            }
+            else {
+                // Не должна никогда выполняться.
+                TIM2->CR1 &= ~TIM_CR1_ARPE;
+                TIM2->ARR = current_32bit_period;
+            }
+        }
+
+        //Костыльный предохранитель от убегания.
+        if (TIM2->CNT > current_32bit_period) {
+            TIM2->EGR |= TIM_EGR_UG;
+        }
+    }
+    whl_arr[numRL]->prev_speed = vRLrpm;
+
+
+
+
+
+
+
+    ////////////    TIMER5 -  RR  ///////////////
+    if (vRRrpm == 0) {
+        TIM5->CR1 &= ~((uint16_t)TIM_CR1_CEN);
+    }
+    else {
+        TIM5->CR1 |= TIM_CR1_CEN;  // enable
+                                   //
+        uint32_t current_32bit_period = calculete_period_only(vRRrpm);
+
+        if (vRRrpm > whl_arr[numRR]->prev_speed) {
+            TIM5->CR1 |= TIM_CR1_ARPE;
+            TIM5->ARR = current_32bit_period;
+
+            if (TIM5->CNT > current_32bit_period) {
+                TIM5->EGR |= TIM_EGR_UG;
+            }
+
+            HAL_GPIO_TogglePin(LED_RX2_GPIO_Port, LED_RX2_Pin);
+        }
+        else {
+            /* my_printf(" ARR: %d\n\r", arr_with_calculations[0]); */
+
+            HAL_GPIO_TogglePin(LED_TX2_GPIO_Port, LED_TX2_Pin);
+
+            if (TIM5->CNT < current_32bit_period) {
+                TIM5->CR1 |= TIM_CR1_ARPE;
+                TIM5->ARR = current_32bit_period;
+            }
+            else {
+                TIM5->CR1 &= ~TIM_CR1_ARPE;
+                TIM5->ARR = current_32bit_period;
+            }
+        }
+
+        //Костыльный предохранитель от убегания.
+        if (TIM5->CNT > current_32bit_period) {
+            TIM5->EGR |= TIM_EGR_UG;
+            HAL_GPIO_TogglePin(LED_RX3_GPIO_Port, LED_RX3_Pin);
+        }
+    }
+    whl_arr[numRR]->prev_speed = vRRrpm;
+
+
+
+
+
+
 
     int arr_with_calculations[4] = {300, 300, 300, 300};
-
-
 
     ////////////    TIMER3 -  FR  ///////////////
 
@@ -264,10 +368,9 @@ void set_new_speeds(int vFLrpm, int vFRrpm, int vRLrpm, int vRRrpm, whl_chnl *wh
         if (vFRrpm != whl_arr[numFR]->prev_speed) {
             if (vFRrpm > whl_arr[numFR]->prev_speed) {
 
-                HAL_GPIO_TogglePin(LastPin_GPIO_Port, LastPin_Pin);
-                HAL_GPIO_TogglePin(LED_RX2_GPIO_Port, LED_RX2_Pin);
 
                 if (whl_arr[numFR]->psc_change_flag == 1) {
+                    //this isn't functional now.
                     whl_arr[numFR]->psc_change_flag = 0;
                     TIM3->CCMR1 |= TIM_CCMR1_OC1M_0;
                     TIM3->CCMR1 |= TIM_CCMR1_OC1M_1;
@@ -296,8 +399,7 @@ void set_new_speeds(int vFLrpm, int vFRrpm, int vRLrpm, int vRRrpm, whl_chnl *wh
                      - пишем новый ARR  по старому прескалеру (без буфера)
                      - если PSC поменялся, то кладём уже по буферу и PSC и ARR.
                      */
-                    TIM3->CR1 |= TIM_CR1_ARPE;    // будем писать сразу в ARR (мимо shadow)
-                    TIM3->ARR = arr_with_calculations[2];
+
                     if (arr_with_calculations[0] != arr_with_calculations[1]) {
                         /* whl_arr[numFR]->psc_change_flag = 1; */
                         /* g_psc_change_flag = 1; */
@@ -311,7 +413,18 @@ void set_new_speeds(int vFLrpm, int vFRrpm, int vRLrpm, int vRRrpm, whl_chnl *wh
                         TIM3->PSC = arr_with_calculations[1];
                         TIM3->ARR = arr_with_calculations[3];
 
+                        HAL_GPIO_TogglePin(LastPin_GPIO_Port, LastPin_Pin);
+
                     }
+
+                    TIM3->CR1 |= TIM_CR1_ARPE;    // будем писать сразу в ARR (мимо shadow)
+                    TIM3->ARR = arr_with_calculations[2];
+                    /* Костыльный предохранитель от убегания. */
+                    if (TIM3->CNT > arr_with_calculations[2]) {
+                        TIM3->EGR |= TIM_EGR_UG;
+                    }
+
+
                 }
             }
             else {
@@ -329,11 +442,11 @@ void set_new_speeds(int vFLrpm, int vFRrpm, int vRLrpm, int vRRrpm, whl_chnl *wh
 
 
                 if (arr_with_calculations[0] != arr_with_calculations[1]) {
-                    whl_arr[numFR]->psc_change_flag = 1;
-                    g_psc_change_flag = 1;
+                    /* whl_arr[numFR]->psc_change_flag = 1; */
+                    /* g_psc_change_flag = 1; */
                     /* TIM3->CCMR1 &= ~TIM_OCMODE_TOGGLE; // nonfunctional */
 
-                    TIM3->CCMR1 &= ~TIM_CCMR1_OC1M; //set to 0 = keep level
+                    /* TIM3->CCMR1 &= ~TIM_CCMR1_OC1M; //set to 0 = keep level */
                                                     
                     /* TIM3->CCMR1 &= ~TIM_CCMR1_OC1M_0;  // ref manual 1212 and 1273 */
                     /* TIM3->CCMR1 &= ~TIM_CCMR1_OC1M_1;  // ref manual 1212 and 1273 */
@@ -359,7 +472,82 @@ void set_new_speeds(int vFLrpm, int vFRrpm, int vRLrpm, int vRRrpm, whl_chnl *wh
         }
     }
 
-    ////////////    TIMER4 -  RL  ///////////////
+
+
+
+
+
+
+
+    ////////////    TIMER4 -  FL  ///////////////
+
+    if (vFLrpm == 0) {
+        TIM4->CR1 &= ~((uint16_t)TIM_CR1_CEN);
+    }
+    else {
+        TIM4->CR1 |= TIM_CR1_CEN;  
+
+        calculete_prsc_and_perio(vFLrpm, arr_with_calculations, whl_arr, numFL);
+
+        if (vFLrpm != whl_arr[numFL]->prev_speed) {
+            if (vFLrpm > whl_arr[numFL]->prev_speed) {
+
+
+                if (whl_arr[numFL]->psc_change_flag == 1) {
+                    whl_arr[numFL]->psc_change_flag = 0;
+                    TIM4->CCMR1 |= TIM_CCMR1_OC1M_0;
+                    TIM4->CCMR1 |= TIM_CCMR1_OC1M_1;
+                }
+
+                if (TIM4->CNT > (arr_with_calculations[2])) {
+                    TIM4->PSC = arr_with_calculations[1];
+                    TIM4->ARR = arr_with_calculations[3];
+                    TIM4->EGR = TIM_EGR_UG;
+
+                }
+                else {
+                    TIM4->CR1 |= TIM_CR1_ARPE;    // будем писать сразу в ARR (мимо shadow)
+                    TIM4->ARR = arr_with_calculations[2];
+                    if (arr_with_calculations[0] != arr_with_calculations[1]) {
+
+                        TIM4->CR1 &= ~TIM_CR1_ARPE;
+
+                        TIM4->PSC = arr_with_calculations[1];
+                        TIM4->ARR = arr_with_calculations[3];
+
+                    }
+                }
+            }
+            else {
+
+                if (arr_with_calculations[0] != arr_with_calculations[1]) {
+                    whl_arr[numFL]->psc_change_flag = 1;
+                    g_psc_change_flag = 1;
+
+                    TIM4->CCMR1 &= ~TIM_CCMR1_OC1M; 
+                    
+                    TIM4->CR1 &= ~TIM_CR1_ARPE;
+
+                    TIM4->PSC = arr_with_calculations[1];
+                    TIM4->ARR = arr_with_calculations[3];
+
+                }
+
+                TIM4->CR1 |= TIM_CR1_ARPE;
+                TIM4->ARR = arr_with_calculations[2];
+
+            }
+            whl_arr[numFL]->initial_tmp_flag = arr_with_calculations[1];
+            whl_arr[numFL]->prev_speed = vFLrpm;
+        }
+    }
+
+
+
+
+
+
+
 
 }
 
@@ -413,7 +601,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
     if (htim->Instance == TIM3) {
 
-        HAL_GPIO_TogglePin(PreLast_GPIO_Port, ZeroB_Pin);
+        HAL_GPIO_TogglePin(PreLast_GPIO_Port, FourB_Pin);
 
         // почему разыменование?? - требование к аргументу - __HANDLE__: TIM
         //
@@ -424,13 +612,17 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
         /* my_printf("t2:ctr: %d /n", t_val); */
         /* my_printf("t2:arr: %d /n", v_arr); */
 
-        if (g_psc_change_flag == 1) {
-            g_psc_change_flag = 0;
+        /* if (g_psc_change_flag == 1) { */
+            /* g_psc_change_flag = 0; */
 
-            do_int_in_while = 1;
+            /* do_int_in_while = 1; */
 
-            /* TIM2 -> CCMR1 |= TIM_CCMR1_OC1M; //set to 1 - toggle again */
-        }
+            /* [> TIM2 -> CCMR1 |= TIM_CCMR1_OC1M; //set to 1 - toggle again <] */
+        /* } */
+    }
+    else if (htim->Instance == TIM4) {
+
+        HAL_GPIO_TogglePin(PreLast_GPIO_Port, fiveB_Pin);
     }
     else if (htim->Instance == TIM8) {
         if (going_to_change_prescaler_timer3 == 1) {
@@ -453,23 +645,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
         /* reset UIF bit of TIMx_SR        (clear IRQ flag) */
         /* set CEN bit of the TIMx_CR1 (enable counter) */
     }
-    else if (htim->Instance == TIM4) {
-    }
-    else if (htim->Instance == TIM5) {
-        if (going_to_change_prescaler_timer5 == 1) {
-            going_to_change_prescaler_timer5 = 0;
-
-            TIM5->CCMR1 |= TIM_CCMR1_OC1M_0;  // ref manual 1274
-            TIM5->CCMR1 |= TIM_CCMR1_OC1M_1;
-            TIM5->CR1 &= ~TIM_CR1_CEN;
-            TIM5->EGR |= TIM_EGR_UG;
-            /* TIM5->CR1 &=~ UIF; */
-            TIM5->SR = 0;  // Clearing the UIF bit
-            TIM5->CR1 |= TIM_CR1_CEN;
-
-            /* TIM2 -> CCMR1 |= TIM_CCMR1_OC1M; //set to 1 - toggle again */
-        }
-    }
+    /* else if (htim->Instance == TIM5) { */
+    /* } */
 }
 void calculate_arr(whl_chnl *whl_arr[], int whl)
 {
@@ -1194,7 +1371,8 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(LED_RX3_GPIO_Port, LED_RX3_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, ZeroB_Pin|FourB_Pin|Pre_pre_Pin|PreLast_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, ZeroB_Pin|FourB_Pin|fiveB_Pin|Pre_pre_Pin
+                          |PreLast_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LastPin_GPIO_Port, LastPin_Pin, GPIO_PIN_RESET);
@@ -1221,8 +1399,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LED_RX3_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : ZeroB_Pin FourB_Pin Pre_pre_Pin PreLast_Pin */
-  GPIO_InitStruct.Pin = ZeroB_Pin|FourB_Pin|Pre_pre_Pin|PreLast_Pin;
+  /*Configure GPIO pins : ZeroB_Pin FourB_Pin fiveB_Pin Pre_pre_Pin
+                           PreLast_Pin */
+  GPIO_InitStruct.Pin = ZeroB_Pin|FourB_Pin|fiveB_Pin|Pre_pre_Pin
+                          |PreLast_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;

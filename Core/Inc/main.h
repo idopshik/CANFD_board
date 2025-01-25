@@ -91,6 +91,8 @@ void Error_Handler(void);
 #define CAN_TX1_GPIO_Port GPIOA
 #define FourB_Pin GPIO_PIN_4
 #define FourB_GPIO_Port GPIOB
+#define fiveB_Pin GPIO_PIN_5
+#define fiveB_GPIO_Port GPIOB
 #define Pre_pre_Pin GPIO_PIN_7
 #define Pre_pre_GPIO_Port GPIOB
 #define PreLast_Pin GPIO_PIN_9
