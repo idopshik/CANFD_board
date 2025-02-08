@@ -73,27 +73,9 @@ FDCAN_RxHeaderTypeDef RxHeader1;
 uint8_t canRX[8];  // CAN Bus Receive Buffer
 uint8_t freshCanMsg = 0;
 
-char buffer[10];
-
 char ms100Flag = 0;
 char ms100Flag_2 = 0;
 
-int crtn_pscs[] = {0, 0, 0, 0};
-
-volatile uint8_t do_int_in_while = 0;
-volatile uint8_t g_psc_change_flag = 0;
-int going_to_change_prescaler_timer3 = 0;
-int going_to_change_prescaler_timer4 = 0;
-int going_to_change_prescaler_timer5 = 0;
-
-uint32_t PSC_old;
-uint32_t ARR_old;
-
-int lastval[] = {0, 0, 0, 0};
-
-int flag_to_check;
-
-//
 typedef struct {
     uint8_t wheel_num;
     TIM_HandleTypeDef *htim;
@@ -184,7 +166,6 @@ int calculete_prsc_and_perio(int val, int *arr, whl_chnl *whl_arr[], int wheelnu
     }
 
     // Только временно
-    /* if ((crtn_pscs[wheelnum] == 0) && (wheelnum == 2 )){ */
     if (whl_arr[wheelnum]->initial_tmp_flag == 0) {
         /* arr[0] =  newpresc; */
         /* my_printf("prescaler_only_once for %d wheel\n\r", wheelnum); */
@@ -192,7 +173,6 @@ int calculete_prsc_and_perio(int val, int *arr, whl_chnl *whl_arr[], int wheelnu
         arr[0] = 24;  // tmp
     }
     else {
-        /* arr[0] = crtn_pscs[wheelnum]; */
 
         arr[0] = whl_arr[wheelnum]->prev_psc;
     }
@@ -235,7 +215,6 @@ int calculete_prsc_and_perio(int val, int *arr, whl_chnl *whl_arr[], int wheelnu
         /* my_printf("val: %d\n\n\r", val); */
         /* my_printf("\n"); */
 
-        flag_to_check = 1;
     }
     else {
         arr[3] = arr[2];
@@ -642,7 +621,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
         /* if (g_psc_change_flag == 1) { */
             /* g_psc_change_flag = 0; */
 
-            /* do_int_in_while = 1; */
 
             /* [> TIM2 -> CCMR1 |= TIM_CCMR1_OC1M; //set to 1 - toggle again <] */
         /* } */
@@ -652,19 +630,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
         HAL_GPIO_TogglePin(PreLast_GPIO_Port, fiveB_Pin);
     }
     else if (htim->Instance == TIM8) {
-        if (going_to_change_prescaler_timer3 == 1) {
-            going_to_change_prescaler_timer3 = 0;
-            TIM3->CCMR1 |= TIM_CCMR1_OC1M_0;  // ref manual 1274
-            TIM3->CCMR1 |= TIM_CCMR1_OC1M_1;
-
-            TIM3->CR1 &= ~TIM_CR1_CEN;
-            TIM3->EGR |= TIM_EGR_UG;
-            /* TIM3->CR1 &=~ UIF; */
-            TIM3->SR = 0;  // Clearing the UIF bit
-            TIM3->CR1 |= TIM_CR1_CEN;
-
-            /* TIM2 -> CCMR1 |= TIM_CCMR1_OC1M; //set to 1 - toggle again */
-        }
 
         /* reset CEN bit of the TIMx_CR1 (disable counter) */
         /* write new prescaler value to TIMx_PSC */
@@ -790,31 +755,6 @@ int main(void)
 
         /* HAL_Delay(0.01); // Insert delay 100 ms */
         /* printf("100ms passed\n"); */
-        if (do_int_in_while == 666) {
-            do_int_in_while = 0;
-
-            //  if(whl_arr->psc_change_flag){
-
-            //  }
-            for (uint8_t i = 0; i < 4; i++) {
-                if (whl_arr[i]->psc_change_flag == 1) {
-                    whl_arr[i]->psc_change_flag = 0;
-
-                    HAL_GPIO_TogglePin(PreLast_GPIO_Port, FourB_Pin);
-    
-                    whl_arr[i]->htim->Instance->CCMR1 |= TIM_OCMODE_TOGGLE;  // ref manual 1274
-                    /* whl_arr[i]->htim->Instance->CCMR1 |= TIM_CCMR1_OC1M_0;  // ref manual 1274 */
-                    /* whl_arr[i]->htim->Instance->CCMR1 |= TIM_CCMR1_OC1M_1; */
-
-                    whl_arr[i]->htim->Instance->CR1 &= ~TIM_CR1_CEN;
-                    whl_arr[i]->htim->Instance->EGR |= TIM_EGR_UG;
-                    /* TIM2->CR1 &=~ UIF; */
-                    whl_arr[i]->htim->Instance->SR = 0;  // Clearing the UIF bit
-                    whl_arr[i]->htim->Instance->CR1 |= TIM_CR1_CEN;
-                    /* my_printf("did prescaler_change_down\n\r"); */
-                }
-            }
-        }
 
         if (ms100Flag_2 > 0) {
             ms100Flag_2 = 0;
@@ -840,7 +780,7 @@ int main(void)
             vFLrpm = (uint8_t)canRX[0] << 8 | (uint8_t)canRX[1];
             vFRrpm = (uint8_t)canRX[2] << 8 | (uint8_t)canRX[3];
             vRLrpm = (uint8_t)canRX[4] << 8 | (uint8_t)canRX[5];
-            vRRrpm = (uint8_t)canRX[2] << 8 | (uint8_t)canRX[3];
+            vRRrpm = (uint8_t)canRX[6] << 8 | (uint8_t)canRX[7];
 
             /*my_printf("vFLrpm: %d vFRrpm: %d  vRLrpm: %d  vRRrpm: %d \n",
              * vFLrpm, vFRrpm, vRLrpm, vRRrpm);*/
